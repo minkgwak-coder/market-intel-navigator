@@ -1,0 +1,10 @@
+# Render Blueprint: dashboard only. The Ask AI (RAG) endpoints are disabled in public mode (no API cost).
+services:
+  - type: web
+    name: market-intel-navigator
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/meta
+    envVars:
+      - key: MI_PUBLIC
+        value: "1"

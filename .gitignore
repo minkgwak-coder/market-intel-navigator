@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+cache.sqlite
+data/
+eval/results.json
+.env

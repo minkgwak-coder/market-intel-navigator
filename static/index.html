@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Market Intelligence Navigator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* Shell: 248px sidebar (saved markets, recent, settings) + fluid workspace capped at 1240. Neutral ramp, one accent. */
+:root{
+  --bg:#F5F6F7; --surface:#FFFFFF; --surface2:#ECEEF0; --ink:#14181C; --muted:#5B6670; --line:#E1E4E8;
+  --accent:#C2410C; --accent-ink:#FFFFFF; --accent-soft:#FBE9DF;
+  --amber-soft:#F6EBD2; --good:#1B7F4B; --bad:#B42318; --bar:#BAC3CC; --shadow:0 1px 2px rgba(20,24,28,.06);
+  --f:"IBM Plex Sans KR",system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101316; --surface:#171B1F; --surface2:#1F2429; --ink:#ECEFF1; --muted:#929CA6; --line:#272D33;
+    --accent:#F08A4B; --accent-ink:#1B0E05; --accent-soft:#2A1A10;
+    --amber-soft:#2B2210; --good:#4CC38A; --bad:#F07C71; --bar:#3B444D; --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101316; --surface:#171B1F; --surface2:#1F2429; --ink:#ECEFF1; --muted:#929CA6; --line:#272D33;
+  --accent:#F08A4B; --accent-ink:#1B0E05; --accent-soft:#2A1A10;
+  --amber-soft:#2B2210; --good:#4CC38A; --bad:#F07C71; --bar:#3B444D; --shadow:none; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:14px;line-height:1.6}
+h1,h2,h3{font-weight:600;margin:0;line-height:1.3;text-wrap:balance}
+p{margin:0}
+a{color:var(--accent)}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* shell */
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px}
+.brand{display:flex;align-items:center;gap:8px;padding:4px 8px 16px;font-weight:600;font-size:14px;line-height:1.25;background:none;border:0;text-align:left;color:var(--ink)}
+.brand svg{width:22px;height:22px;stroke:var(--accent);stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nav-item{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border-radius:8px;border:0;background:transparent;color:var(--muted);width:100%;text-align:left;font-size:14px;transition:background-color .12s,color .12s}
+.nav-item:hover{background:var(--surface2);color:var(--ink)}
+.nav-item[aria-current="page"]{background:var(--surface2);color:var(--ink);font-weight:500}
+.nav-item span.t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-item .rm{opacity:0;border:0;background:none;color:var(--muted);padding:2px;border-radius:4px;display:flex}
+.nav-item:hover .rm{opacity:1}
+.nav-label{font-size:12.5px;color:var(--muted);padding:0 8px;margin:24px 0 8px}
+.nav-empty{font-size:13px;color:var(--muted);padding:0 8px}
+.side-foot{margin-top:auto;padding-top:24px;display:grid;gap:8px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;padding:2px;background:var(--bg)}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);padding:4px 8px;border-radius:6px;font-size:13px;transition:background-color .12s,color .12s}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.main{min-width:0}
+.top{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .in{max-width:1240px;margin:0 auto;padding:12px 32px;display:flex;gap:12px}
+.search{flex:1;display:flex;gap:8px;min-width:0}
+.field{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:0 12px;height:40px;color:var(--muted)}
+.field:focus-within{border-color:var(--accent);color:var(--ink)}
+.field input{flex:1;min-width:0;border:0;background:transparent;outline:0;height:100%}
+.field input::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 20px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-weight:500;white-space:nowrap;transition:opacity .12s}
+.btn:hover{opacity:.9}
+.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{background:var(--surface2);opacity:1}
+.btn.ghost[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.progress{height:2px}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.page{max-width:1240px;margin:0 auto;padding:24px 32px 64px}
+select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:0 12px;height:36px;min-width:0;max-width:100%}
+
+/* home */
+.hero{padding-block:32px 8px}
+.hero h1{font-size:clamp(28px,4vw,40px);letter-spacing:-.02em;line-height:1.2}
+.hero p.lead{margin-top:12px;color:var(--muted);max-width:60ch;font-size:16px}
+.facts{display:flex;flex-wrap:wrap;gap:8px 32px;margin-top:24px}
+.fact b{display:block;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.fact span{font-size:13px;color:var(--muted)}
+.h-label{font-size:13px;font-weight:500;color:var(--muted);margin:32px 0 8px}
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.mk{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;transition:border-color .12s}
+.mk:hover{border-color:var(--accent)}
+.mk b{font-weight:500;font-size:15px}
+.mk span{font-size:12.5px;color:var(--muted)}
+.pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.notice{margin-top:16px;border:1px solid var(--line);background:var(--amber-soft);padding:8px 16px;border-radius:8px}
+
+/* result */
+.rh{display:flex;flex-wrap:wrap;gap:16px 24px;justify-content:space-between;align-items:flex-start}
+.rh h1{font-size:clamp(24px,3.4vw,32px);letter-spacing:-.015em}
+.hs-row{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:8px;align-items:center}
+.hs{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:1px 8px;border-radius:6px}
+.sub{color:var(--muted);font-size:13px;margin-top:8px}
+.acts{display:flex;flex-wrap:wrap;gap:8px}
+.ind-note{margin-top:12px;max-width:72ch;font-size:13px;color:var(--muted);border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--line)}
+.sec{margin-top:32px}
+.sec>h2,.sec-h{font-size:16px;margin-bottom:12px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sec>h2 small,.sec-h small{font-size:12.5px;color:var(--muted);font-weight:400}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;min-width:0;box-shadow:var(--shadow)}
+.card h3{font-size:14px;font-weight:600}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.card-h small{font-size:12.5px;color:var(--muted);font-weight:400}
+.cols{display:grid;gap:16px}
+.cols.c32{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+.cols.c21{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.stat4{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;min-width:0;box-shadow:var(--shadow)}
+.stat .l{font-size:13px;color:var(--muted)}
+.stat .v{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-top:4px;line-height:1.2}
+.stat .s{font-size:12.5px;color:var(--muted);margin-top:4px}
+.up{color:var(--good)} .down{color:var(--bad)}
+.mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mini>div{background:var(--surface);padding:16px}
+.mini .l{font-size:12.5px;color:var(--muted)}
+.mini .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.01em}
+.mini .s{font-size:12px;color:var(--muted)}
+.sum h3{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:8px}
+.sum p{font-size:14px;margin-top:8px;color:var(--muted)}
+.sum p.k{font-size:18px;line-height:1.55;font-weight:500;color:var(--ink);margin-top:0;max-width:64ch}
+.sum .ai{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;white-space:pre-wrap;color:var(--ink)}
+svg.chart{display:block;width:100%;height:auto}
+svg.chart .b{fill:var(--bar)} svg.chart .b.hl{fill:var(--accent)}
+svg.chart .v{fill:var(--ink);font-family:var(--f-mono);font-size:11px;text-anchor:middle}
+svg.chart .a{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px;text-anchor:middle}
+svg.chart .a2{fill:var(--muted);font-family:var(--f-mono);font-size:10.5px;text-anchor:middle}
+svg.chart line{stroke:var(--line)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px}
+th,td{padding:12px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12.5px;color:var(--muted);font-weight:500;padding-top:0}
+tbody tr:hover td{background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td .code{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.hb{display:grid;grid-template-columns:minmax(72px,120px) 1fr auto;gap:12px;align-items:center;height:36px}
+.hb .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.hb .track i{display:block;height:100%;background:var(--bar);border-radius:4px}
+.hb.kr .track i{background:var(--accent)} .hb.kr .nm{font-weight:600}
+.hb .val{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);text-align:right;white-space:nowrap}
+.news{list-style:none;margin:0;padding:0}
+.news li{padding:12px 0;border-bottom:1px solid var(--line)}
+.news li:first-child{padding-top:0}
+.news li:last-child{border-bottom:0;padding-bottom:0}
+.news a{color:var(--ink);text-decoration:none;font-weight:500}
+.news a:hover{color:var(--accent);text-decoration:underline}
+.news .m{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:2px}
+.muted{color:var(--muted);font-size:13px}
+.loading{color:var(--muted);font-size:13px}
+.err{color:var(--bad);font-size:13px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cmp-add{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:16px}
+.foot{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;display:grid;gap:4px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.on{opacity:1}
+
+.pipe{list-style:none;margin:32px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.pipe li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.pipe li .n{font-size:12.5px;color:var(--muted)}
+.pipe li b{display:block;font-weight:600;font-size:15px;margin-top:2px}
+.pipe li .d{font-size:13px;color:var(--muted);margin-top:8px;min-height:20px}
+.pipe li[data-s="run"]{border-color:var(--accent)}
+.pipe li[data-s="done"] .n{color:var(--good)}
+.pipe li[data-s="err"]{border-color:var(--bad)}
+.pipe li[data-s="err"] .n{color:var(--bad)}
+.ans{margin-top:24px;white-space:pre-wrap;font-size:15px;line-height:1.7;max-width:76ch}
+.ans-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:12px;white-space:normal}
+a.cite{font-family:var(--f-mono);font-size:11.5px;color:var(--accent);text-decoration:none;vertical-align:baseline;padding:0 2px}
+a.cite:hover{text-decoration:underline}
+.src{display:grid;grid-template-columns:44px 1fr;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.src:last-child{border-bottom:0}
+.src .id{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+.src .meta{font-size:12.5px;color:var(--muted)}
+.src .tx{font-size:13.5px;overflow-wrap:anywhere}
+.src.flash{background:var(--accent-soft)}
+.cmd{font-family:var(--f-mono);font-size:12.5px;background:var(--surface2);border-radius:8px;padding:8px 12px;margin-top:8px;overflow-x:auto;white-space:pre}
+@media (max-width:900px){
+  .app{display:block}
+  .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:12px 16px}
+  .brand{padding:0}
+  .side nav{display:none}
+  .side-foot{margin:0 0 0 auto;padding:0;display:flex;gap:8px}
+  .top{position:static}
+  .top .in,.page{padding-inline:16px}
+  .cols.c32,.cols.c21{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){.top .in{flex-direction:column}.btn:not(.sm){height:40px}}
+@media print{
+  .side,.top,.toolbar,.acts,.cmp-add,.toast,.progress{display:none!important}
+  .app{display:block} body{background:#fff;color:#000;font-size:12px}
+  .page{padding:0;max-width:none}
+  .card,.stat,.mini{box-shadow:none;break-inside:avoid}
+  :root{--bg:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#ccc;--surface2:#eee}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V3h10v6"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v7H7z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <button class="brand" id="brand" type="button" aria-label="Home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l6-7 4 4 8-10"/></svg>
+      <span>Market Intelligence Navigator</span>
+    </button>
+    <nav aria-label="menu">
+      <button class="nav-item" id="navHome" type="button"><svg class="i"><use href="#i-search"/></svg><span class="t" data-i18n="nav_search">시장 검색</span></button>
+      <button class="nav-item" id="navAsk" type="button"><svg class="i"><use href="#i-message"/></svg><span class="t" data-i18n="nav_ask">AI 질문</span></button>
+      <div class="nav-label"><span data-i18n="saved">저장한 시장</span></div>
+      <div id="savedList"></div>
+      <div class="nav-label"><span data-i18n="recent">최근 조회</span></div>
+      <div id="recentList"></div>
+    </nav>
+    <div class="side-foot">
+      <div class="seg" id="langSeg" role="group" aria-label="Language"><button type="button" data-l="ko">한국어</button><button type="button" data-l="en">English</button></div>
+      <div class="seg" id="themeSeg" role="group" aria-label="Theme"><button type="button" data-th="light" data-i18n="th_light">라이트</button><button type="button" data-th="dark" data-i18n="th_dark">다크</button><button type="button" data-th="auto" data-i18n="th_auto">자동</button></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div class="in">
+        <form class="search" id="form" role="search">
+          <label class="field"><svg class="i"><use href="#i-search"/></svg><input id="q" type="search" autocomplete="off" data-i18n-ph="ph" aria-label="search"></label>
+          <button class="btn" type="submit" data-i18n="search">검색</button>
+        </form>
+      </div>
+      <div class="progress"><i id="prog"></i></div>
+    </header>
+
+    <main class="page" id="page">
+      <section id="home">
+        <div class="hero">
+          <h1 data-i18n="h1"></h1>
+          <p class="lead" data-i18n="lead"></p>
+          <div class="facts" id="facts"></div>
+        </div>
+        <div id="homeSaved" hidden><div class="h-label" data-i18n="saved"></div><div class="mk-grid" id="homeSavedGrid"></div></div>
+        <div class="h-label" data-i18n="popular"></div>
+        <div class="mk-grid" id="examples"></div>
+        <div class="h-label" data-i18n="or_pick"></div>
+        <div class="pick">
+          <select id="selCountry" aria-label="country"></select>
+          <select id="selIndustry" aria-label="industry"></select>
+          <button class="btn sm" id="goPick" type="button" data-i18n="view"></button>
+        </div>
+        <div id="homeNotice"></div>
+        <div id="homeRecent" hidden><div class="h-label" data-i18n="recent"></div><div class="mk-grid" id="homeRecentGrid"></div></div>
+      </section>
+
+      <section id="ask" hidden>
+        <div class="rh"><div><h1 data-i18n="ask_h1"></h1><p class="sub" data-i18n="ask_sub"></p></div></div>
+        <div id="askStatus" style="margin-top:16px"></div>
+        <form class="search" id="askForm" style="margin-top:24px">
+          <label class="field"><svg class="i"><use href="#i-message"/></svg><input id="askQ" type="text" autocomplete="off" data-i18n-ph="ask_ph" aria-label="question"></label>
+          <button class="btn" id="askGo" type="submit" data-i18n="ask_btn"></button>
+        </form>
+        <div class="h-label" data-i18n="ask_try"></div>
+        <div class="mk-grid" id="askEx"></div>
+        <ol class="pipe" id="pipe" hidden></ol>
+        <div id="askOut"></div>
+      </section>
+
+      <section id="result" hidden>
+        <div class="rh">
+          <div>
+            <h1 id="title"></h1>
+            <div class="hs-row" id="hsRow"></div>
+            <p class="sub" id="subtitle"></p>
+            <p class="ind-note" id="indNote" hidden></p>
+          </div>
+          <div class="acts">
+            <button class="btn sm ghost" id="saveBtn" type="button" aria-pressed="false"><svg class="i"><use href="#i-bookmark"/></svg><span id="saveTxt"></span></button>
+            <button class="btn sm ghost" id="askBtn" type="button"><svg class="i"><use href="#i-message"/></svg><span data-i18n="ask_from"></span></button>
+            <button class="btn sm ghost" id="linkBtn" type="button"><svg class="i"><use href="#i-link"/></svg><span data-i18n="copy_link"></span></button>
+            <button class="btn sm ghost" id="pdfBtn" type="button"><svg class="i"><use href="#i-printer"/></svg><span data-i18n="pdf"></span></button>
+            <button class="btn sm ghost" id="csv" type="button"><svg class="i"><use href="#i-download"/></svg><span data-i18n="csv"></span></button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <select id="rCountry" aria-label="country"></select>
+          <select id="rIndustry" aria-label="industry"></select>
+          <button class="btn sm" id="rGo" type="button" data-i18n="view"></button>
+        </div>
+
+        <section class="sec"><div class="stat4" id="tkpis"></div></section>
+        <section class="sec"><div class="card sum" id="sum"></div></section>
+
+        <section class="sec"><div class="cols c32">
+          <div class="card"><div class="card-h"><h3 data-i18n="c_imports"></h3><small id="tradeStatus"></small></div><div id="tradeChart"></div></div>
+          <div class="card"><div class="card-h"><h3 data-i18n="s_partners"></h3><small id="partnerYear"></small></div><div id="partners"></div></div>
+        </div></section>
+
+        <section class="sec"><div class="cols c32">
+          <div class="card"><div class="card-h"><h3 data-i18n="s_products"></h3><small id="prodYear"></small></div><div class="tbl" id="products"></div></div>
+          <div class="card"><div class="card-h"><h3 data-i18n="korea"></h3><small id="korNote"></small></div><div id="korChart"></div></div>
+        </div></section>
+
+        <section class="sec"><h2><span data-i18n="s_overview"></span><small>World Bank</small></h2><div class="mini" id="kpis"></div></section>
+
+        <section class="sec"><div class="cols c21">
+          <div class="card"><div class="card-h"><h3 data-i18n="s_news"></h3><small id="newsSrc"></small></div><div id="news"></div></div>
+          <div class="card"><div class="card-h"><h3 data-i18n="s_compare"></h3></div>
+            <div class="cmp-add"><select id="cmpSel" aria-label="compare country"></select><button class="btn sm ghost" id="cmpAdd" type="button"><svg class="i"><use href="#i-plus"/></svg><span data-i18n="add"></span></button></div>
+            <p class="muted" data-i18n="cmp_hint" style="margin-bottom:16px"></p>
+            <div id="cmp"></div>
+          </div>
+        </div></section>
+      </section>
+
+      <footer class="foot"><p id="pubNote" hidden></p><p data-i18n="foot1"></p><p data-i18n="foot2"></p></footer>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+"use strict";
+/* ---------------- i18n ---------------- */
+var I18N={
+ko:{
+ pub_note:function(d){return '공개 데모입니다. 데이터는 '+(d||'저장 시점')+' 기준으로 저장한 실제 통계이고, AI 질문은 API 비용 때문에 꺼져 있습니다. 시연 영상을 참고하세요'}, pub_nohs:'공개 데모에서는 HS 코드 직접 입력을 지원하지 않습니다. 분야를 골라 주세요',
+ nav_ask:'AI 질문', ask_h1:'AI에게 묻기', ask_sub:'질문에서 국가와 산업을 읽고, 수집한 통계와 뉴스에서 근거를 찾아 GPT가 정리합니다', ask_ph:'예: 한국 의료기기 기업이 브라질에 진출해야 할까?',
+ ask_btn:'질문', ask_try:'이런 질문을 해보세요', ask_from:'AI에게 묻기',
+ ask_ex1:'한국 의료기기 기업이 브라질에 진출해야 할까?', ask_ex2:'미국 치과 시장에서 한국산의 위치는?', ask_ex3:'독일 영상진단기기 수입은 어느 나라가 주도해?',
+ ask_q:function(c,i){return '한국 기업이 '+c+' '+i+' 시장에 진출해야 할까?'},
+ p_q:'질문 입력', p_s:'벡터 검색', p_e:'관련 데이터 추출', p_a:'GPT 요약', p_wait:'대기', p_run:'진행 중', p_done:'완료', p_err:'오류',
+ pd_idx_loading:'통계와 뉴스를 불러와 색인하는 중입니다. 처음 한 번은 20초쯤 걸립니다', pd_idx_cached:'색인이 있어 바로 검색합니다', pd_idx_done:function(n){return n+'개 문서를 색인했습니다'},
+ pd_search:function(f,k){return '상위 '+f+'개를 찾았습니다 (k='+k+')'}, pd_extract:function(n,p){return '근거 '+n+'개, 핵심 통계 '+p+'개 포함'},
+ pd_answer:function(m,s){return m+' · '+s+'초'},
+ rag_ready:function(e,c,n){return '준비됨 · 임베딩 '+e+' · 답변 '+c+' · 색인된 시장 '+n+'개'},
+ rag_pkg:'RAG 패키지가 설치되지 않았습니다. 터미널에서 아래 명령을 실행한 뒤 서버를 다시 시작하세요',
+ rag_key:'OpenAI API 키가 설정되지 않았습니다. 키를 설정한 뒤 서버를 다시 시작하세요',
+ rag_nomarket:'질문에서 국가와 산업을 찾지 못했습니다. 국가와 산업 이름을 넣어 다시 물어보세요',
+ rag_failed:'답변을 만들지 못했습니다: ', src_h:'근거', src_pinned:'핵심 통계', src_rel:'관련도', ans_h:'답변',
+ kind_trade_summary:'연도별 수입', kind_korea:'한국산', kind_trade_product:'품목', kind_partners:'공급국', kind_macro:'거시 지표', kind_news:'뉴스',
+ ph:'국가와 분야 검색  예: Brazil dental, 미국 의료기기, 독일 영상진단기기, 멕시코 hs 901841',
+ search:'검색', view:'조회', csv:'CSV', pdf:'PDF 저장', copy_link:'링크 복사', copied:'링크를 복사했습니다', add:'추가',
+ save:'저장', saved_on:'저장됨', nav_search:'시장 검색', saved:'저장한 시장', recent:'최근 조회', popular:'자주 보는 시장', or_pick:'직접 선택',
+ th_light:'라이트', th_dark:'다크', th_auto:'자동',
+ saved_empty:'저장한 시장이 없습니다', recent_empty:'조회 기록이 없습니다',
+ h1:'의료기기, 어느 나라가 얼마나 수입하는지',
+ lead:'치과, 의료, 동물용 의료기기 시장을 국가별로 봅니다. 국가와 분야를 입력하면 UN Comtrade 수입 통계와 World Bank 지표, 최근 뉴스를 한 화면에 모으고, 한국산 점유율과 주요 공급국도 같이 보여줍니다.',
+ f_countries:function(n){return n+'개국'}, f_countries_l:'조회 가능한 국가', f_ind:function(n){return n+'개'}, f_ind_l:'세부 분야, HS 코드 직접 입력도 가능',
+ f_years:'9개 연도', f_years_l:'최근 수입 통계',
+ s_overview:'시장 개요', c_imports:'연도별 수입액', s_products:'품목별', s_partners:'주요 공급국', s_news:'관련 뉴스', s_compare:'국가 비교',
+ korea:'한국산 수입', cmp_hint:'같은 산업의 다른 국가를 최대 4개까지 추가할 수 있습니다. 처음 불러올 때 국가당 20초쯤 걸립니다',
+ foot1:'무역 통계는 UN Comtrade(수입국 신고 기준, 현재가 USD, HS 분류), 거시 지표는 World Bank, 뉴스는 Google News(보조로 GDELT)에서 가져옵니다.',
+ foot2:'수입액은 내수 시장 규모가 아니라 수입 수요를 보여주는 값입니다. 최신 연도는 공표 시차로 1~2년 전이거나 잠정치일 수 있고, 미신고 품목이나 연도가 있을 수 있습니다.',
+ need_country:'국가를 찾지 못했습니다. 아래에서 골라 주세요', need_industry:'산업을 찾지 못했습니다. 아래에서 고르거나 "hs 901841"처럼 HS 코드를 입력하세요',
+ pick_c:'국가', pick_i:'산업', loading:'불러오는 중', retry:'다시 시도',
+ sub:function(y,n){return 'UN Comtrade 수입 기준'+(y?' · 최신 '+y+'년':'')+(n?' · HS '+n+'개 코드':'')},
+ kpi_gdp:'GDP', kpi_gdppc:'1인당 GDP', kpi_gdpg:'GDP 성장률', kpi_pop:'인구', kpi_pop65:'65세 이상 비중', kpi_hgdp:'의료비 / GDP', kpi_hpc:'1인당 의료비',
+ l_imports:function(y){return y+'년 수입액'}, l_yoy:'전년 대비', l_cagr:function(n){return '최근 '+n+'년 연평균'}, l_kor:'한국산 비중',
+ vs:function(y){return y+'년 대비'}, range:function(a,b){return a+'년 → '+b+'년'},
+ kval:'한국산 수입액',
+ no_trade:'이 국가와 산업의 수입 통계를 찾지 못했습니다. 신고가 늦거나 HS 코드가 맞지 않을 수 있습니다',
+ trade_prog:function(y,i,n){return y+'년 확인 중 ('+i+'/'+n+')'},
+ trade_done:function(n,y){return n+'개 연도 · 최신 '+y+'년'},
+ th_prod:'품목', th_val:'수입액', th_share:'비중', th_yoy:'전년 대비', th_cagr:'연평균', th_kor:'한국산',
+ th_c:'국가', th_year:'연도', n_hs:function(a,b){return 'HS '+b+'개 중 '+a+'개 신고'},
+ partner_note:function(n){return '공급국 '+n+'곳 중 상위'}, partner_trunc:'API 행 제한 때문에 일부는 품목별로 따로 합산했습니다',
+ news_none:'최근 90일 안에 관련 기사를 찾지 못했습니다', news_custom:'HS 코드를 직접 입력하면 뉴스는 검색하지 않습니다', news_days:'최근 90일',
+ sum_title:'요약 · 수집한 통계로 자동 작성', ai_btn:'LLM 요약', ai_wait:'작성 중',
+ sm_imports:function(c,i,y,v,yo,n,cg){
+   var ap=function(x){return (Math.abs(x)*100).toFixed(1)+'%'},out=c+' '+i+' 수입은 '+y+'년 '+v+'입니다.';
+   if(yo!=null&&cg!=null)out+=' 전년보다 '+ap(yo)+(yo<0?' 줄었고':' 늘었고')+', 최근 '+n+'년은 연평균 '+ap(cg)+(cg<0?' 줄었습니다.':' 늘었습니다.');
+   else if(yo!=null)out+=' 전년보다 '+ap(yo)+(yo<0?' 줄었습니다.':' 늘었습니다.');
+   else if(cg!=null)out+=' 최근 '+n+'년은 연평균 '+ap(cg)+(cg<0?' 줄었습니다.':' 늘었습니다.');
+   return out},
+ sm_partners:function(list,y){return '수입처는 '+list+' 순입니다 ('+y+'년)'},
+ sm_kor:function(sh,v,y){return '한국산은 '+v+'로 전체의 '+sh+'입니다 ('+y+'년)'},
+ sm_nokor:function(y){return y+'년에 신고된 한국산 수입은 없습니다'},
+ sm_top:function(n,sh){return '품목으로는 '+n+'이 '+sh+'로 가장 큽니다'},
+ sm_macro:function(c,pc,pcy,h,hpc,hy,o65,oy){return c+'의 1인당 GDP는 '+pc+'('+pcy+'년)'+(h?', 의료비는 GDP의 '+h+(hpc?'(1인당 '+hpc+', ':'(')+hy+'년)':'')+(o65?', 65세 이상 인구는 '+o65+'('+oy+'년)':'')+'입니다'},
+ sm_news:function(n){return '최근 90일 관련 기사 '+n+'건'},
+ sm_caveat:'수입액은 수입 수요를 보여주는 값이며 내수 시장 규모와는 다릅니다',
+ cmp_empty:'비교할 국가를 추가하세요', err_prefix:'불러오지 못했습니다: ', more:function(n){return '+'+n}
+},
+en:{
+ pub_note:function(d){return 'Public demo. Data is a snapshot of real statistics from '+(d||'the snapshot date')+'. Ask AI is switched off to avoid API costs; see the demo video'}, pub_nohs:'Custom HS codes are not available in the public demo. Pick a segment instead',
+ nav_ask:'Ask AI', ask_h1:'Ask AI', ask_sub:'Reads the country and industry from your question, finds evidence in the collected statistics and news, and has GPT write the answer', ask_ph:'e.g. Should Korean medical device companies enter Brazil?',
+ ask_btn:'Ask', ask_try:'Try a question', ask_from:'Ask AI',
+ ask_ex1:'Should Korean medical device companies enter Brazil?', ask_ex2:'Where does Korea stand in the US dental market?', ask_ex3:'Which countries lead Germany\'s diagnostic imaging imports?',
+ ask_q:function(c,i){return 'Should Korean companies enter the '+c+' '+i.toLowerCase()+' market?'},
+ p_q:'Question', p_s:'Vector search', p_e:'Relevant data', p_a:'GPT summary', p_wait:'Waiting', p_run:'Running', p_done:'Done', p_err:'Error',
+ pd_idx_loading:'Loading statistics and news and indexing them. The first time takes about 20 seconds', pd_idx_cached:'Index found, searching now', pd_idx_done:function(n){return n+' documents indexed'},
+ pd_search:function(f,k){return 'Found the top '+f+' (k='+k+')'}, pd_extract:function(n,p){return n+' sources, '+p+' of them core statistics'},
+ pd_answer:function(m,s){return m+' · '+s+'s'},
+ rag_ready:function(e,c,n){return 'Ready · embeddings '+e+' · answers '+c+' · '+n+' markets indexed'},
+ rag_pkg:'The RAG packages are not installed. Run this in a terminal, then restart the server',
+ rag_key:'No OpenAI API key is set. Set the key, then restart the server',
+ rag_nomarket:'Could not find a country and an industry in the question. Name both and ask again',
+ rag_failed:'Could not produce an answer: ', src_h:'Sources', src_pinned:'core statistics', src_rel:'relevance', ans_h:'Answer',
+ kind_trade_summary:'Imports by year', kind_korea:'Korea', kind_trade_product:'Product', kind_partners:'Suppliers', kind_macro:'Macro', kind_news:'News',
+ ph:'Search a country and segment, e.g. Brazil dental, US medical devices, Germany diagnostic imaging, Mexico hs 901841',
+ search:'Search', view:'View', csv:'CSV', pdf:'Save PDF', copy_link:'Copy link', copied:'Link copied', add:'Add',
+ save:'Save', saved_on:'Saved', nav_search:'Market search', saved:'Saved markets', recent:'Recent', popular:'Popular markets', or_pick:'Pick directly',
+ th_light:'Light', th_dark:'Dark', th_auto:'Auto',
+ saved_empty:'No saved markets', recent_empty:'No history yet',
+ h1:'Medical devices: who imports how much',
+ lead:'Dental, medical and veterinary device markets, country by country. Enter a country and a segment to get UN Comtrade import statistics, World Bank indicators and recent news on one screen, with Korea\'s share and the top suppliers alongside.',
+ f_countries:function(n){return n}, f_countries_l:'countries covered', f_ind:function(n){return n}, f_ind_l:'segments, or enter HS codes directly',
+ f_years:'9 years', f_years_l:'of recent import data',
+ s_overview:'Market overview', c_imports:'Imports by year', s_products:'By product', s_partners:'Top suppliers', s_news:'Related news', s_compare:'Country comparison',
+ korea:'Imports from Korea', cmp_hint:'Add up to 4 other countries for the same industry. Each takes about 20 seconds the first time',
+ foot1:'Trade data from UN Comtrade (importer-reported, current USD, HS classification), indicators from the World Bank, news from Google News with GDELT as backup.',
+ foot2:'Import value shows import demand, not domestic market size. The latest year can lag by 1-2 years or be provisional, and some products or years may be unreported.',
+ need_country:'Country not recognized. Pick one below', need_industry:'Industry not recognized. Pick one below or type HS codes like "hs 901841"',
+ pick_c:'Country', pick_i:'Industry', loading:'Loading', retry:'Retry',
+ sub:function(y,n){return 'Based on UN Comtrade imports'+(y?' · latest '+y:'')+(n?' · '+n+' HS codes':'')},
+ kpi_gdp:'GDP', kpi_gdppc:'GDP per capita', kpi_gdpg:'GDP growth', kpi_pop:'Population', kpi_pop65:'Population 65+', kpi_hgdp:'Health spend / GDP', kpi_hpc:'Health spend per capita',
+ l_imports:function(y){return 'Imports in '+y}, l_yoy:'Year over year', l_cagr:function(n){return n+'-year average'}, l_kor:'Korea share',
+ vs:function(y){return 'vs '+y}, range:function(a,b){return a+' → '+b},
+ kval:'Imports from Korea',
+ no_trade:'No import statistics found for this country and industry. Reporting may be late or the HS codes may not match',
+ trade_prog:function(y,i,n){return 'Checking '+y+' ('+i+'/'+n+')'},
+ trade_done:function(n,y){return n+' years · latest '+y},
+ th_prod:'Product', th_val:'Imports', th_share:'Share', th_yoy:'YoY', th_cagr:'Avg / yr', th_kor:'Korea',
+ th_c:'Country', th_year:'Year', n_hs:function(a,b){return a+' of '+b+' HS codes reported'},
+ partner_note:function(n){return 'Top of '+n+' supplier countries'}, partner_trunc:'Some totals were summed product by product because of the API row limit',
+ news_none:'No related articles in the last 90 days', news_custom:'News is not searched for custom HS codes', news_days:'last 90 days',
+ sum_title:'Summary · written from the collected statistics', ai_btn:'LLM summary', ai_wait:'Writing',
+ sm_imports:function(c,i,y,v,yo,n,cg){
+   var ap=function(x){return (Math.abs(x)*100).toFixed(1)+'%'},out=c+"'s "+i.toLowerCase()+" imports were "+v+" in "+y+".";
+   var a=yo!=null?(yo<0?'down ':'up ')+ap(yo)+' on the prior year':null,b=cg!=null?(cg<0?'down ':'up ')+ap(cg)+' a year on average over '+n+' years':null;
+   if(a&&b)out+=' That is '+a+' and '+b+'.';else if(a)out+=' That is '+a+'.';else if(b)out+=' That is '+b+'.';
+   return out},
+ sm_partners:function(list,y){return 'Top suppliers: '+list+' ('+y+')'},
+ sm_kor:function(sh,v,y){return 'Korea supplied '+v+', '+sh+' of the total ('+y+')'},
+ sm_nokor:function(y){return 'No imports from Korea were reported for '+y},
+ sm_top:function(n,sh){return n+' is the largest product at '+sh+' of imports'},
+ sm_macro:function(c,pc,pcy,h,hpc,hy,o65,oy){return c+' has a GDP per capita of '+pc+' ('+pcy+')'+(h?', spends '+h+' of GDP on health'+(hpc?' ('+hpc+' per capita, ':' (')+hy+')':'')+(o65?', and '+o65+' of its people are 65 or older ('+oy+')':'')},
+ sm_news:function(n){return n+' related articles in the last 90 days'},
+ sm_caveat:'Import value reflects import demand, not domestic market size',
+ cmp_empty:'Add countries to compare', err_prefix:'Could not load: ', more:function(n){return '+'+n}
+}};
+var LANG='ko',THEME='auto';
+try{var sv=localStorage.getItem('mi-lang');if(sv==='ko'||sv==='en')LANG=sv;else if((navigator.language||'').toLowerCase().indexOf('ko')!==0)LANG='en';
+  var th=localStorage.getItem('mi-theme');if(th==='light'||th==='dark'||th==='auto')THEME=th}catch(e){}
+function t(k){var v=I18N[LANG][k];if(v===undefined)v=I18N.ko[k];if(typeof v==='function')return v.apply(null,[].slice.call(arguments,1));return v===undefined?k:v}
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function ic(n){return '<svg class="i"><use href="#i-'+n+'"/></svg>'}
+function toast(msg){var e=$('toast');e.textContent=msg;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove('on')},1800)}
+
+/* ---------------- formatting ---------------- */
+function usd(n){if(n==null||isNaN(n))return '—';var a=Math.abs(n);
+  if(a>=1e12)return '$'+(n/1e12).toFixed(2)+'T';if(a>=1e9)return '$'+(n/1e9).toFixed(2)+'B';
+  if(a>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(a>=1e3)return '$'+(n/1e3).toFixed(0)+'K';return '$'+Math.round(n)}
+function usd0(n){return n==null?'—':'$'+Math.round(n).toLocaleString('en-US')}
+function pct(x,d,sign){if(x==null||isNaN(x))return '—';var v=(x*100).toFixed(d==null?1:d);return (sign&&x>0?'+':'')+v+'%'}
+function pctv(v,d){return v==null?'—':v.toFixed(d==null?1:d)+'%'}
+function pop(n){return n==null?'—':n>=1e9?(n/1e9).toFixed(2)+'B':n>=1e6?(n/1e6).toFixed(1)+'M':Math.round(n).toLocaleString('en-US')}
+function cls(x){return x==null?'':x>=0?'up':'down'}
+
+/* ---------------- data access ---------------- */
+var META=null,RUN=0,S=null;
+function api(path,opt){return fetch(path,opt).then(function(r){return r.json().catch(function(){return {error:'bad response'}}).then(function(j){if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j})})}
+function cName(c){return LANG==='ko'&&c.ko?c.ko:c.name}
+function indName(i){return i.name[LANG]||i.name.en}
+function partnerName(code){var c=META.byM49[code];if(c)return cName(c);return META.names[String(code)]||('#'+code)}
+function sortedCountries(){var l=META.countries.slice();l.sort(function(a,b){return cName(a).localeCompare(cName(b),LANG==='ko'?'ko':'en')});return l}
+
+/* ---------------- query parsing ---------------- */
+function has(low,alias){
+  if(/^[\x00-\x7f]+$/.test(alias)){return new RegExp('(^|[^a-z0-9])'+alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])').test(low)}
+  return low.indexOf(alias)>=0}
+function parseQuery(q){
+  var low=' '+q.toLowerCase()+' ',country=null,best=0,ind=null,ib=0,hs=null;
+  var m=low.match(/\bhs[\s:]*([\d][\d,\s\/]*)/);
+  if(m){hs=m[1].split(/[^\d]+/).filter(function(x){return /^\d{4}(\d{2})?$/.test(x)});if(!hs.length)hs=null;else low=low.replace(m[0],' ')}
+  META.countries.forEach(function(c){c.aliases.forEach(function(a){if(a.length>=2&&a.length>best&&has(low,a)){best=a.length;country=c}})});
+  META.industries.forEach(function(i){i.kw.forEach(function(k){k=k.toLowerCase();if(k.length>ib&&has(low,k)){ib=k.length;ind=i}})});
+  if(hs)ind=customIndustry(hs);
+  return {country:country,industry:ind}}
+function customIndustry(codes){
+  return {id:'custom',custom:true,name:{en:'HS '+codes.join(', '),ko:'HS '+codes.join(', ')},kw:[],news:[],
+    hs:codes.map(function(c){return {code:c,en:'HS '+c,ko:'HS '+c}})}}
+function indById(id){
+  if(id.indexOf('hs-')===0)return customIndustry(id.slice(3).split('+'));
+  return META.industries.filter(function(i){return i.id===id})[0]}
+function indKey(i){return i.custom?'hs-'+i.hs.map(function(h){return h.code}).join('+'):i.id}
+function mkKey(c,i){return c.iso3+'/'+indKey(i)}
+
+/* ---------------- loaders ---------------- */
+var CUR_YEAR=new Date().getFullYear();
+function progress(p){$('prog').style.width=(p*100)+'%';if(p>=1)setTimeout(function(){$('prog').style.width='0'},500)}
+
+function loadYears(country,ind,st,run,onYear){
+  var codes=ind.hs.map(function(h){return h.code}).join(','),y=CUR_YEAR-1,found=0,tried=0,total=CUR_YEAR-1-2013+1;
+  function next(){
+    if(run!==RUN||found>=9||y<2013)return Promise.resolve();
+    var yy=y--;tried++;
+    st.status=t('trade_prog',yy,tried,total);onYear(null);
+    return api('/api/trade?reporter='+country.m49+'&year='+yy+'&hs='+codes).then(function(d){
+      if(run!==RUN)return;
+      st.years[yy]=d;if(d.rows.length)found++;onYear(yy);
+    }).then(next)}
+  return next().then(function(){if(run===RUN){st.status='';st.done=true;onYear(null)}})}
+
+function derive(years){
+  var ys=Object.keys(years).map(Number).sort(function(a,b){return a-b}).filter(function(y){return years[y].rows.length});
+  return ys.map(function(y){var tot=0,kor=0,n=0,by={},byK={};
+    years[y].rows.forEach(function(r){if(r.world!=null){tot+=r.world;n++;by[r.hs]=r.world}if(r.kor!=null){kor+=r.kor;byK[r.hs]=r.kor}});
+    return {year:y,total:tot,kor:kor,by:by,byK:byK,n:n}})}
+function metrics(series){
+  if(!series.length)return null;
+  var last=series[series.length-1],prev=series.filter(function(s){return s.year===last.year-1})[0];
+  var yoy=prev&&prev.total>0?last.total/prev.total-1:null;
+  var by=Math.max(series[0].year,last.year-5),base=series.filter(function(s){return s.year===by})[0],span=base?last.year-base.year:0;
+  var cagr=base&&span>0&&base.total>0&&last.total>0?Math.pow(last.total/base.total,1/span)-1:null;
+  return {last:last,prev:prev,yoy:yoy,cagr:cagr,span:span,base:base,korShare:last.total>0?last.kor/last.total:null}}
+
+function start(country,ind,push){
+  var run=++RUN;
+  S={country:country,ind:ind,macro:null,years:{},status:'',done:false,partners:null,news:null,cmp:[],errs:{},ai:null,aiBusy:false};
+  if(push!==false){try{history.replaceState(null,'','#'+mkKey(country,ind))}catch(e){location.hash=mkKey(country,ind)}}
+  rememberRecent(country,ind);
+  hideAsk();$('home').hidden=true;$('result').hidden=false;window.scrollTo(0,0);
+  fillResultSelects();renderHeader();renderAll();renderSide();progress(.08);
+  loadMacro(run);loadNews(run);loadTrade(run)}
+
+function loadMacro(run){
+  delete S.errs.macro;
+  api('/api/macro?iso3='+S.country.iso3).then(function(d){if(run!==RUN)return;S.macro=d;renderOverview();renderSummary();progress(.3)})
+   .catch(function(e){if(run!==RUN)return;S.errs.macro=e.message;renderOverview()})}
+function loadNews(run){
+  delete S.errs.news;S.news=null;renderNews();
+  if(S.ind.custom){S.news={items:[],custom:true};renderNews();return}
+  api('/api/news?country='+encodeURIComponent(S.country.name)+'&terms='+encodeURIComponent(S.ind.news.join('|'))+'&lang=english').then(function(d){
+    if(run!==RUN)return;S.news=d;renderNews();renderSummary()}).catch(function(e){if(run!==RUN)return;S.news={items:[]};S.errs.news=e.message;renderNews()})}
+function loadTrade(run){
+  delete S.errs.trade;var partnerStarted=false;
+  loadYears(S.country,S.ind,S,run,function(y){
+    renderTrade();
+    if(y!=null&&!partnerStarted&&S.years[y].rows.length){partnerStarted=true;loadPartners(run,y)}
+    var n=Object.keys(S.years).length;progress(.3+Math.min(n/12,1)*.65);
+    if(S.done&&run===RUN){progress(1);if(!derive(S.years).length&&!S.errs.trade){S.errs.trade='none';renderTrade()}}
+  }).catch(function(e){if(run!==RUN)return;S.errs.trade=e.message;S.status='';renderTrade()})}
+function loadPartners(run,year){
+  api('/api/partners?reporter='+S.country.m49+'&year='+year+'&hs='+S.ind.hs.map(function(h){return h.code}).join(',')).then(function(d){
+    if(run!==RUN)return;S.partners=d;renderPartners();renderSummary()}).catch(function(e){if(run!==RUN)return;S.errs.partners=e.message;renderPartners()})}
+
+/* ---------------- rendering ---------------- */
+function errBox(key,retry){return '<div class="err">'+esc(t('err_prefix')+S.errs[key])+' <button class="btn sm ghost" data-retry="'+retry+'">'+esc(t('retry'))+'</button></div>'}
+function renderAll(){renderOverview();renderTrade();renderPartners();renderNews();renderCompare();renderSummary()}
+function renderHeader(){
+  $('title').textContent=cName(S.country)+' · '+indName(S.ind);
+  var hs=S.ind.hs,show=hs.slice(0,4);
+  $('hsRow').innerHTML=show.map(function(h){return '<span class="hs" title="'+esc(h[LANG]||h.en)+'">HS '+esc(h.code)+'</span>'}).join('')+(hs.length>4?'<span class="muted">'+esc(t('more',hs.length-4))+'</span>':'');
+  renderSave();renderSubtitle();var nt=S.ind.note&&(S.ind.note[LANG]||S.ind.note.en);$('indNote').hidden=!nt;$('indNote').textContent=nt||''}
+function renderSubtitle(){var m=metrics(derive(S.years));$('subtitle').textContent=t('sub',m?m.last.year:null,S.ind.hs.length)}
+function renderSave(){
+  var on=S&&isSaved(mkKey(S.country,S.ind));$('saveBtn').setAttribute('aria-pressed',on?'true':'false');$('saveTxt').textContent=on?t('saved_on'):t('save')}
+
+var KPI=[['gdp','kpi_gdp',usd],['gdp_pc','kpi_gdppc',usd0],['gdp_growth','kpi_gdpg',function(v){return pctv(v)}],['pop','kpi_pop',pop],
+ ['pop65','kpi_pop65',function(v){return pctv(v)}],['health_gdp','kpi_hgdp',function(v){return pctv(v)}],['health_pc','kpi_hpc',usd0]];
+function lastOf(k){var s=S.macro&&S.macro[k]&&S.macro[k].series;return s&&s.length?s[s.length-1]:null}
+function renderOverview(){
+  if(S.errs.macro){$('kpis').innerHTML='<div>'+errBox('macro','macro')+'</div>';return}
+  if(!S.macro){$('kpis').innerHTML='<div class="loading">'+esc(t('loading'))+'</div>';return}
+  $('kpis').innerHTML=KPI.map(function(k){var l=lastOf(k[0]);
+    return '<div><div class="l">'+esc(t(k[1]))+'</div><div class="v">'+esc(l?k[2](l[1]):'—')+'</div><div class="s">'+(l?l[0]:'')+'</div></div>'}).join('')}
+
+function barSvg(items,fmt,W,H){
+  W=W||620;H=H||250;var T=26,B=46,n=items.length;if(!n)return '';
+  var max=Math.max.apply(null,items.map(function(i){return i.value}).concat([1])),bw=W/n,pad=Math.min(bw*.2,14),g='';
+  items.forEach(function(it,i){var x=i*bw+pad,w=bw-2*pad,h=(H-T-B)*it.value/max,y=H-B-h,cx=x+w/2;
+    g+='<rect class="b'+(it.hl?' hl':'')+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+Math.max(h,1).toFixed(1)+'" rx="3"/>'
+      +'<text class="v" x="'+cx.toFixed(1)+'" y="'+(y-6).toFixed(1)+'">'+esc(fmt(it.value))+'</text>'
+      +'<text class="a" x="'+cx.toFixed(1)+'" y="'+(H-B+17)+'">'+esc(it.label)+'</text>'
+      +(it.sub?'<text class="a2" x="'+cx.toFixed(1)+'" y="'+(H-B+32)+'">'+esc(it.sub)+'</text>':'')});
+  return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img"><line x1="0" x2="'+W+'" y1="'+(H-B)+'" y2="'+(H-B)+'"/>'+g+'</svg>'}
+
+function tstat(l,v,s,c){return '<div class="stat"><div class="l">'+esc(l)+'</div><div class="v '+(c||'')+'">'+esc(v)+'</div><div class="s">'+esc(s||'')+'</div></div>'}
+function renderTrade(){
+  renderSubtitle();
+  var series=derive(S.years),m=metrics(series);
+  $('tradeStatus').textContent=S.status||(S.done&&m?t('trade_done',series.length,m.last.year):'');
+  if(!series.length){
+    var msg=S.errs.trade?(S.errs.trade==='none'?'<div class="muted">'+esc(t('no_trade'))+'</div>':errBox('trade','trade')):'<div class="loading">'+esc(t('loading'))+'</div>';
+    $('tkpis').innerHTML=['l_yoy','l_yoy','l_yoy','l_kor'].map(function(){return tstat('—','—','')}).join('');
+    $('tradeChart').innerHTML=msg;$('korChart').innerHTML='';renderProducts(series,m);return}
+  $('tkpis').innerHTML=
+    tstat(t('l_imports',m.last.year),usd(m.last.total),'UN Comtrade')
+   +tstat(t('l_yoy'),pct(m.yoy,1,true),m.prev?t('vs',m.prev.year):'',cls(m.yoy))
+   +tstat(t('l_cagr',m.span),pct(m.cagr,1,true),m.base?t('range',m.base.year,m.last.year):'',cls(m.cagr))
+   +tstat(t('l_kor'),pct(m.korShare,2),usd(m.last.kor)+' · '+m.last.year);
+  var items=series.map(function(s,i){var p=series[i-1],y=p&&p.year===s.year-1&&p.total>0?s.total/p.total-1:null;
+    return {label:String(s.year),value:s.total,sub:y==null?'':pct(y,0,true),hl:i===series.length-1}});
+  $('tradeChart').innerHTML=barSvg(items,usd,720,340);
+  var ki=series.slice(-6).map(function(s,i,arr){return {label:String(s.year),value:s.kor,sub:s.total>0?pct(s.kor/s.total,1):'',hl:i===arr.length-1}});
+  $('korChart').innerHTML=barSvg(ki,usd,440,260);$('korNote').textContent=usd(m.last.kor)+' · '+m.last.year;
+  renderProducts(series,m);renderSummary()}
+
+function renderProducts(series,m){
+  var box=$('products');
+  if(!m){box.innerHTML='<div class="loading">'+esc(t('loading'))+'</div>';return}
+  $('prodYear').textContent=m.last.year;
+  var last=m.last,prev=m.prev,base=m.base,span=m.span;
+  var rows=S.ind.hs.map(function(h){var v=last.by[h.code],pv=prev?prev.by[h.code]:null,bv=base?base.by[h.code]:null,k=last.byK[h.code];
+    return {h:h,v:v,share:v!=null&&last.total>0?v/last.total:null,yoy:v!=null&&pv>0?v/pv-1:null,cagr:v>0&&bv>0&&span>0?Math.pow(v/bv,1/span)-1:null,k:k}});
+  rows.sort(function(a,b){return (b.v||0)-(a.v||0)});
+  var body=rows.map(function(r){return '<tr><td>'+esc(r.h[LANG]||r.h.en)+'<div class="code">HS '+esc(r.h.code)+'</div></td><td>'+usd(r.v)+'</td><td>'+pct(r.share,1)+'</td><td class="'+cls(r.yoy)+'">'+pct(r.yoy,1,true)+'</td><td class="'+cls(r.cagr)+'">'+pct(r.cagr,1,true)+'</td><td>'+usd(r.k)+'</td></tr>'}).join('');
+  box.innerHTML='<table><thead><tr><th>'+esc(t('th_prod'))+'</th><th>'+esc(t('th_val'))+'</th><th>'+esc(t('th_share'))+'</th><th>'+esc(t('th_yoy'))+'</th><th>'+esc(t('th_cagr'))+'</th><th>'+esc(t('th_kor'))+'</th></tr></thead><tbody>'+body+'</tbody></table>'
+   +'<div class="muted" style="margin-top:12px">'+esc(t('n_hs',last.n,S.ind.hs.length))+'</div>'}
+
+function renderPartners(){
+  var box=$('partners');
+  if(S.errs.partners){box.innerHTML=errBox('partners','partners');return}
+  if(!S.partners){box.innerHTML='<div class="loading">'+esc(t('loading'))+'</div>';return}
+  var p=S.partners;$('partnerYear').textContent=p.year;
+  var max=p.partners.length?p.partners[0].value:1,total=p.world||p.partners.reduce(function(a,b){return a+b.value},0);
+  box.innerHTML=p.partners.slice(0,10).map(function(x){return '<div class="hb'+(x.code===META.korea?' kr':'')+'"><span class="nm" title="'+esc(partnerName(x.code))+'">'+esc(partnerName(x.code))+'</span><span class="track"><i style="width:'+(x.value/max*100).toFixed(1)+'%"></i></span><span class="val">'+usd(x.value)+' · '+pct(x.value/total,1)+'</span></div>'}).join('')
+   +'<div class="muted" style="margin-top:12px">'+esc(t('partner_note',p.n_partners))+(p.truncated_each_hs?' · '+esc(t('partner_trunc')):'')+'</div>'}
+
+function renderNews(){
+  var box=$('news');
+  if(!S.news){box.innerHTML='<div class="loading">'+esc(t('loading'))+'</div>';return}
+  if(S.news.custom){box.innerHTML='<div class="muted">'+esc(t('news_custom'))+'</div>';$('newsSrc').textContent='';return}
+  if(S.errs.news&&!S.news.items.length){box.innerHTML='<div class="muted">'+esc(t('news_none'))+'</div>'+errBox('news','news');$('newsSrc').textContent='';return}
+  var items=S.news.items.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'')});
+  $('newsSrc').textContent=(S.news.source||'')+' · '+t('news_days');
+  if(!items.length){box.innerHTML='<div class="muted">'+esc(t('news_none'))+'</div>';return}
+  box.innerHTML='<ul class="news">'+items.map(function(a){return '<li><a href="'+esc(a.url)+'" target="_blank" rel="noopener noreferrer">'+esc(a.title)+'</a><div class="m">'+esc([a.domain,a.date].filter(Boolean).join(' · '))+'</div></li>'}).join('')+'</ul>'}
+
+function facts(){
+  var series=derive(S.years),m=metrics(series),f={country:S.country.name,industry:S.ind.name.en,hs_codes:S.ind.hs.map(function(h){return h.code+' '+h.en}),macro:{},trade:null,top_partners:[],news_headlines:[]};
+  KPI.forEach(function(k){var l=lastOf(k[0]);if(l)f.macro[k[0]]={year:l[0],value:l[1]}});
+  if(m){f.trade={latest_year:m.last.year,imports_usd:m.last.total,yoy:m.yoy,cagr:m.cagr,cagr_years:m.span,korea_usd:m.last.kor,korea_share:m.korShare,
+    by_year:series.map(function(s){return {year:s.year,imports_usd:s.total,korea_usd:s.kor}}),
+    by_product:S.ind.hs.map(function(h){return {hs:h.code,name:h.en,usd:m.last.by[h.code]}})}}
+  if(S.partners){var tot=S.partners.world||1;f.top_partners=S.partners.partners.slice(0,8).map(function(x){return {name:META.names[String(x.code)]||x.code,usd:x.value,share:x.value/tot,year:S.partners.year}})}
+  if(S.news)f.news_headlines=S.news.items.slice(0,8).map(function(a){return a.date+' '+a.title});
+  return f}
+function renderSummary(){
+  var series=derive(S.years),m=metrics(series),parts=[];
+  if(m){
+    var cn=cName(S.country),iname=indName(S.ind);
+    parts.push(t('sm_imports',cn,iname,m.last.year,usd(m.last.total),m.yoy,m.span,m.cagr));
+    if(S.partners&&S.partners.partners.length){var tot=S.partners.world||1;
+      parts.push(t('sm_partners',S.partners.partners.slice(0,3).map(function(x){return partnerName(x.code)+'('+pct(x.value/tot,1)+')'}).join(', '),S.partners.year))}
+    parts.push(m.last.kor>0?t('sm_kor',pct(m.korShare,2),usd(m.last.kor),m.last.year):t('sm_nokor',m.last.year));
+    var top=S.ind.hs.map(function(h){return {h:h,v:m.last.by[h.code]||0}}).sort(function(a,b){return b.v-a.v})[0];
+    if(top&&top.v>0&&S.ind.hs.length>1)parts.push(t('sm_top',top.h[LANG]||top.h.en,pct(top.v/m.last.total,1)))}
+  var pc=lastOf('gdp_pc'),h=lastOf('health_gdp'),hp=lastOf('health_pc'),o=lastOf('pop65');
+  if(pc)parts.push(t('sm_macro',cName(S.country),usd0(pc[1]),pc[0],h?pctv(h[1]):null,hp?usd0(hp[1]):null,h?h[0]:null,o?pctv(o[1]):null,o?o[0]:null));
+  if(S.news&&S.news.items.length)parts.push(t('sm_news',S.news.items.length));
+  parts.push(t('sm_caveat'));
+  $('sum').innerHTML='<div class="card-h" style="margin-bottom:12px"><h3 style="color:var(--muted);font-weight:500;font-size:13px">'+esc(t('sum_title'))+'</h3>'
+   +(META.ai&&m?'<button class="btn sm ghost" id="aiBtn" '+(S.aiBusy?'disabled':'')+'>'+esc(S.aiBusy?t('ai_wait'):t('ai_btn'))+'</button>':'')+'</div>'
+   +parts.map(function(p,i){return '<p'+(i===0?' class="k"':'')+'>'+esc(p)+'</p>'}).join('')
+   +(S.ai?'<p class="ai">'+esc(S.ai)+'</p>':'')+(S.errs.ai?'<p class="down">'+esc(S.errs.ai)+'</p>':'')}
+
+/* ---------------- compare ---------------- */
+function renderCompare(){
+  var rows=[{country:S.country,years:S.years,status:S.status,done:S.done,primary:true}].concat(S.cmp);
+  var data=rows.map(function(r){return {r:r,m:metrics(derive(r.years))}});
+  if(rows.length===1){$('cmp').innerHTML='<div class="muted">'+esc(t('cmp_empty'))+'</div>';return}
+  var max=Math.max.apply(null,data.map(function(d){return d.m?d.m.last.total:0}).concat([1]));
+  var body=data.map(function(d){var m=d.m,r=d.r;
+    return '<tr><td>'+esc(cName(r.country))+(r.primary?'':' <button class="nav-item rm" style="display:inline-flex;width:auto;height:24px;padding:0 4px;opacity:1" data-rm="'+r.country.iso3+'" aria-label="remove">'+ic('x')+'</button>')+'</td>'
+     +(m?'<td>'+usd(m.last.total)+'<div class="hb" style="height:12px;grid-template-columns:1fr"><span class="track"><i style="width:'+(m.last.total/max*100).toFixed(1)+'%"></i></span></div></td><td class="'+cls(m.cagr)+'">'+pct(m.cagr,1,true)+'</td><td>'+pct(m.korShare,2)+'</td>'
+       :'<td colspan="3" class="muted">'+esc(r.err?t('err_prefix')+r.err:(r.status||t('loading')))+'</td>')+'</tr>'}).join('');
+  $('cmp').innerHTML='<div class="tbl"><table style="min-width:0"><thead><tr><th>'+esc(t('th_c'))+'</th><th>'+esc(t('th_val'))+'</th><th>'+esc(t('th_cagr'))+'</th><th>'+esc(t('l_kor'))+'</th></tr></thead><tbody>'+body+'</tbody></table></div>'}
+function addCompare(iso3){
+  var c=META.byIso[iso3];
+  if(!c||c.iso3===S.country.iso3||S.cmp.length>=4||S.cmp.some(function(x){return x.country.iso3===iso3}))return;
+  var run=RUN,r={country:c,years:{},status:'',done:false,err:null};S.cmp.push(r);renderCompare();
+  loadYears(c,S.ind,r,run,function(){renderCompare()}).catch(function(e){r.err=e.message;renderCompare()})}
+
+/* ---------------- export ---------------- */
+function exportCsv(){
+  var series=derive(S.years);if(!series.length)return;
+  var head=['year','total_imports_usd','imports_from_korea_usd'].concat(S.ind.hs.map(function(h){return 'hs_'+h.code+'_usd'}));
+  var lines=[head.join(',')].concat(series.map(function(s){return [s.year,s.total,s.kor].concat(S.ind.hs.map(function(h){return s.by[h.code]==null?'':s.by[h.code]})).join(',')}));
+  var blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=S.country.iso3+'_'+indKey(S.ind)+'_imports.csv';document.body.appendChild(a);a.click();a.remove()}
+function copyLink(){
+  var url=location.href;
+  function fb(){var ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(t('copied'))}catch(e){}ta.remove()}
+  try{navigator.clipboard.writeText(url).then(function(){toast(t('copied'))},fb)}catch(e){fb()}}
+
+/* ---------------- saved + recent ---------------- */
+function ls(k){try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return []}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function isSaved(k){return ls('mi-saved').indexOf(k)>=0}
+function toggleSave(){var k=mkKey(S.country,S.ind),l=ls('mi-saved');l=l.indexOf(k)>=0?l.filter(function(x){return x!==k}):[k].concat(l);lsSet('mi-saved',l);renderSave();renderSide()}
+function rememberRecent(c,i){var k=mkKey(c,i);lsSet('mi-recent',[k].concat(ls('mi-recent').filter(function(x){return x!==k})).slice(0,8))}
+function keyParts(k){var p=k.split('/'),c=META.byIso[p[0]],i=indById(p[1]||'');return c&&i?{c:c,i:i,k:k}:null}
+function sideItems(list,icon,removable){
+  var cur=S?mkKey(S.country,S.ind):null;
+  return list.map(keyParts).filter(Boolean).map(function(p){
+    return '<button class="nav-item" data-go="'+esc(p.k)+'"'+(p.k===cur?' aria-current="page"':'')+'>'+ic(icon)+'<span class="t">'+esc(cName(p.c)+' · '+indName(p.i))+'</span>'+(removable?'<span class="rm" data-unsave="'+esc(p.k)+'" role="button" aria-label="remove">'+ic('x')+'</span>':'')+'</button>'}).join('')}
+function renderSide(){
+  if(!META)return;
+  var sv=sideItems(ls('mi-saved'),'bookmark',true),rc=sideItems(ls('mi-recent').slice(0,6),'clock',false);
+  $('savedList').innerHTML=sv||'<div class="nav-empty">'+esc(t('saved_empty'))+'</div>';
+  $('recentList').innerHTML=rc||'<div class="nav-empty">'+esc(t('recent_empty'))+'</div>';
+  $('navHome').setAttribute('aria-current',S||ASK?'false':'page');$('navAsk').setAttribute('aria-current',ASK?'page':'false')}
+function mkCards(list){return list.map(keyParts).filter(Boolean).map(function(p){return '<button class="mk" data-go="'+esc(p.k)+'"><b>'+esc(cName(p.c)+' · '+indName(p.i))+'</b><span>'+esc(p.i.custom?'HS '+p.i.hs.length:'HS '+p.i.hs.map(function(h){return h.code}).slice(0,3).join(', ')+(p.i.hs.length>3?' …':''))+'</span></button>'}).join('')}
+function renderHomeLists(){
+  var sv=ls('mi-saved'),rc=ls('mi-recent').filter(function(k){return sv.indexOf(k)<0}).slice(0,4);
+  $('homeSavedGrid').innerHTML=mkCards(sv);$('homeSaved').hidden=!sv.length;
+  $('homeRecentGrid').innerHTML=mkCards(rc);$('homeRecent').hidden=!rc.length;
+  $('examples').innerHTML=mkCards(EXAMPLES.map(function(e){return e[0]+'/'+e[1]}));
+  $('facts').innerHTML='<div class="fact"><b>'+esc(t('f_countries',META.countries.length))+'</b><span>'+esc(t('f_countries_l'))+'</span></div>'
+   +'<div class="fact"><b>'+esc(t('f_ind',META.industries.length))+'</b><span>'+esc(t('f_ind_l'))+'</span></div>'
+   +'<div class="fact"><b>'+esc(t('f_years'))+'</b><span>'+esc(t('f_years_l'))+'</span></div>'}
+
+
+/* ---------------- ask (Phase 3 RAG) ---------------- */
+var ASK=false,askRun=0,askSt=null,askStatusData=null;
+function hideAsk(){ASK=false;$('ask').hidden=true}
+function showAsk(prefill){
+  RUN++;S=null;ASK=true;$('home').hidden=true;$('result').hidden=true;$('ask').hidden=false;progress(0);
+  try{history.replaceState(null,'','#ask')}catch(e){}
+  if(prefill)$('askQ').value=prefill;
+  renderSide();renderAskEx();renderAskStatus();
+  api('/api/rag/status').then(function(d){askStatusData=d;renderAskStatus()}).catch(function(e){askStatusData={available:false,reason:'server',detail:e.message};renderAskStatus()});
+  window.scrollTo(0,0)}
+function renderAskEx(){$('askEx').innerHTML=['ask_ex1','ask_ex2','ask_ex3'].map(function(k){return '<button class="mk" data-ask="'+k+'"><b>'+esc(t(k))+'</b></button>'}).join('')}
+function renderAskStatus(){
+  var st=askStatusData,box=$('askStatus');if(!st){box.innerHTML='';return}
+  if(st.available){var n=Object.keys(st.markets||{}).filter(function(k){return k.charAt(0)!=='_'}).length;
+    box.innerHTML='<p class="muted">'+esc(t('rag_ready',st.embed_model,st.chat_model,n))+'</p>';return}
+  var msg=st.reason==='packages'?t('rag_pkg'):st.reason==='key'?t('rag_key'):esc(st.detail||'');
+  var cmd=st.reason==='packages'?'pip install -r requirements.txt':st.reason==='key'?'set OPENAI_API_KEY=sk-...        (Mac/Linux: export OPENAI_API_KEY=sk-...)':'';
+  box.innerHTML='<div class="notice">'+esc(msg)+(cmd?'<div class="cmd">'+esc(cmd)+'</div>':'')+(st.detail&&st.reason==='packages'?'<div class="muted" style="margin-top:8px">'+esc(st.detail)+'</div>':'')+'</div>'}
+function pipeHtml(){
+  var names=['p_q','p_s','p_e','p_a'],keys=['q','s','e','a'],stl={wait:'p_wait',run:'p_run',done:'p_done',err:'p_err'};
+  return keys.map(function(k,i){var s=askSt.steps[k];
+    return '<li data-s="'+s+'"><div class="n">'+(i+1)+' · '+esc(t(stl[s]))+'</div><b>'+esc(t(names[i]))+'</b><div class="d">'+esc(askSt.det[k]||'')+'</div></li>'}).join('')}
+function mkLabel(key){var p=keyParts(key);return p?cName(p.c)+' · '+indName(p.i):key}
+function askEvent(ev){
+  if(ev.error){
+    var cur=['q','s','e','a'].filter(function(k){return askSt.steps[k]==='run'})[0]||'q';askSt.steps[cur]='err';
+    askSt.err=ev.error==='no_market'?t('rag_nomarket'):ev.error==='rag_unavailable'?null:t('rag_failed')+(ev.detail||ev.error);
+    if(ev.error==='rag_unavailable'){askStatusData=ev.detail;renderAskStatus()}
+    return}
+  if(ev.step==='question'){askSt.steps.q='done';askSt.det.q=ev.markets.map(function(m){return mkLabel(m.key)}).join(', ');askSt.steps.s='run'}
+  else if(ev.step==='index'){askSt.det.s=t(ev.status==='loading'?'pd_idx_loading':ev.status==='cached'?'pd_idx_cached':'pd_idx_done',ev.docs)}
+  else if(ev.step==='search'){askSt.steps.s='done';askSt.det.s=t('pd_search',ev.found,ev.k);askSt.steps.e='run'}
+  else if(ev.step==='extract'){askSt.sources=ev.sources;askSt.steps.e='done';
+    askSt.det.e=t('pd_extract',ev.sources.length,ev.sources.filter(function(x){return x.pinned}).length);askSt.steps.a='run'}
+  else if(ev.step==='answer'){askSt.steps.a='done';askSt.det.a=t('pd_answer',ev.model,ev.seconds);askSt.text=ev.text}}
+function renderAskOut(){
+  $('pipe').hidden=false;$('pipe').innerHTML=pipeHtml();
+  var h='';
+  if(askSt.err)h+='<div class="notice">'+esc(askSt.err)+'</div>';
+  if(askSt.text){
+    var txt=esc(askSt.text.replace(/\*\*/g,'')).replace(/\[S(\d+)\]/g,'<a class="cite" href="#" data-cite="S$1">[S$1]</a>');
+    h+='<div class="card" style="margin-top:24px"><div class="ans-h"><span>'+esc(t('ans_h'))+'</span></div><div class="ans" style="margin-top:0">'+txt+'</div></div>'}
+  if(askSt.sources){
+    h+='<div class="card" style="margin-top:16px"><div class="card-h"><h3>'+esc(t('src_h'))+'</h3></div>'+askSt.sources.map(function(x){
+      var meta=[t('kind_'+x.kind),mkLabel(x.market)];if(x.pinned)meta.push(t('src_pinned'));else if(x.relevance!=null)meta.push(t('src_rel')+' '+x.relevance.toFixed(2));
+      return '<div class="src" id="src-'+x.id+'"><div class="id">'+x.id+'</div><div><div class="meta">'+esc(meta.join(' · '))+'</div><div class="tx">'+esc(x.text)+(x.url?' <a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">↗</a>':'')+'</div></div></div>'}).join('')+'</div>'}
+  $('askOut').innerHTML=h}
+function submitAsk(q){
+  q=q.trim();if(q.length<3)return;
+  var run=++askRun;askSt={steps:{q:'run',s:'wait',e:'wait',a:'wait'},det:{},sources:null,text:null,err:null};
+  $('askGo').disabled=true;renderAskOut();
+  fetch('/api/rag/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,lang:LANG})}).then(function(r){
+    var rd=r.body.getReader(),dec=new TextDecoder(),buf='';
+    function pump(){return rd.read().then(function(x){
+      if(run!==askRun)return;
+      if(x.done){if(buf.trim())askEvent(JSON.parse(buf));return}
+      buf+=dec.decode(x.value,{stream:true});var lines=buf.split('\n');buf=lines.pop();
+      lines.forEach(function(l){if(l.trim())askEvent(JSON.parse(l))});renderAskOut();return pump()})}
+    return pump()
+  }).catch(function(e){if(run!==askRun)return;askSt.err=t('rag_failed')+e.message;askSt.steps.q=askSt.steps.q==='run'?'err':askSt.steps.q})
+   .then(function(){if(run!==askRun)return;$('askGo').disabled=false;renderAskOut()})}
+
+/* ---------------- ui wiring ---------------- */
+var EXAMPLES=[['BRA','medtech'],['USA','dental'],['DEU','imaging'],['VNM','consumables'],['MEX','implants'],['JPN','medtech']];
+function fillSelects(){
+  var cs=sortedCountries(),cur={c:$('selCountry').value,i:$('selIndustry').value,m:$('cmpSel').value};
+  var copt='<option value="">'+esc(t('pick_c'))+'</option>'+cs.map(function(c){return '<option value="'+c.iso3+'">'+esc(cName(c))+'</option>'}).join('');
+  var iopt='<option value="">'+esc(t('pick_i'))+'</option>'+META.industries.map(function(i){return '<option value="'+i.id+'">'+esc(indName(i))+'</option>'}).join('');
+  $('selCountry').innerHTML=copt;$('selIndustry').innerHTML=iopt;$('cmpSel').innerHTML=copt;
+  $('selCountry').value=cur.c;$('selIndustry').value=cur.i;$('cmpSel').value=cur.m;
+  fillResultSelects()}
+function fillResultSelects(){
+  if(!META)return;
+  $('rCountry').innerHTML=sortedCountries().map(function(c){return '<option value="'+c.iso3+'">'+esc(cName(c))+'</option>'}).join('');
+  var io=META.industries.map(function(i){return '<option value="'+i.id+'">'+esc(indName(i))+'</option>'}).join('');
+  if(S&&S.ind.custom)io+='<option value="'+esc(indKey(S.ind))+'">'+esc(indName(S.ind))+'</option>';
+  $('rIndustry').innerHTML=io;
+  if(S){$('rCountry').value=S.country.iso3;$('rIndustry').value=indKey(S.ind)}}
+function applyTheme(){
+  var r=document.documentElement;if(THEME==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',THEME);
+  [].forEach.call(document.querySelectorAll('#themeSeg button'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-th')===THEME)})}
+function applyStatic(){
+  document.documentElement.lang=LANG;
+  [].forEach.call(document.querySelectorAll('[data-i18n]'),function(e){e.textContent=t(e.getAttribute('data-i18n'))});
+  [].forEach.call(document.querySelectorAll('[data-i18n-ph]'),function(e){e.placeholder=t(e.getAttribute('data-i18n-ph'))});
+  [].forEach.call(document.querySelectorAll('#langSeg button'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-l')===LANG)});
+  applyTheme();
+  if(META&&META.public)$('pubNote').textContent=t('pub_note',META.snapshot);
+  if(META){fillSelects();renderHomeLists();renderSide();if(S){renderHeader();renderAll()}if(ASK){renderAskEx();renderAskStatus();if(askSt)renderAskOut()}}}
+function goKey(k){if(k==='ask'){showAsk();return}var p=keyParts(k);if(p)start(p.c,p.i)}
+function showHome(){RUN++;S=null;hideAsk();$('result').hidden=true;$('home').hidden=false;progress(0);try{history.replaceState(null,'',location.pathname)}catch(e){}renderHomeLists();renderSide();window.scrollTo(0,0)}
+function submit(q){
+  q=q.trim();if(!q)return;var p=parseQuery(q);
+  if(META.public&&p.industry&&p.industry.custom){showHomeNotice(t('pub_nohs'),{country:p.country});return}
+  if(p.country&&p.industry){$('homeNotice').innerHTML='';start(p.country,p.industry);return}
+  showHomeNotice(p.country?t('need_industry'):t('need_country'),p)}
+function showHomeNotice(msg,p){
+  RUN++;S=null;hideAsk();$('home').hidden=false;$('result').hidden=true;renderSide();
+  $('homeNotice').innerHTML='<div class="notice">'+esc(msg)+'</div>';
+  if(p&&p.country)$('selCountry').value=p.country.iso3;if(p&&p.industry&&!p.industry.custom)$('selIndustry').value=p.industry.id}
+
+document.addEventListener('click',function(e){
+  var un=e.target.closest('[data-unsave]');
+  if(un){e.stopPropagation();lsSet('mi-saved',ls('mi-saved').filter(function(x){return x!==un.dataset.unsave}));renderSide();renderSave();renderHomeLists();return}
+  var ci=e.target.closest('[data-cite]');
+  if(ci){e.preventDefault();var el=$('src-'+ci.dataset.cite);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('flash');setTimeout(function(){el.classList.remove('flash')},1600)}return}
+  var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.ask){$('askQ').value=t(b.dataset.ask);submitAsk($('askQ').value);return}
+  if(b.id==='aiBtn'){
+    S.aiBusy=true;S.ai=null;delete S.errs.ai;renderSummary();var run=RUN;
+    api('/api/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({lang:LANG,facts:facts()})})
+     .then(function(d){if(run!==RUN)return;S.ai=d.text}).catch(function(er){if(run!==RUN)return;S.errs.ai=er.message})
+     .then(function(){if(run!==RUN)return;S.aiBusy=false;renderSummary()});return}
+  if(b.dataset.go){goKey(b.dataset.go);return}
+  if(b.dataset.retry){var r=b.dataset.retry,run2=RUN;if(r==='macro')loadMacro(run2);else if(r==='news')loadNews(run2);
+    else if(r==='partners'){delete S.errs.partners;renderPartners();var y=Object.keys(S.years).map(Number).filter(function(y){return S.years[y].rows.length}).sort().pop();if(y)loadPartners(run2,y)}
+    else if(r==='trade'){S.years={};S.done=false;loadTrade(run2)}return}
+  if(b.dataset.rm){S.cmp=S.cmp.filter(function(x){return x.country.iso3!==b.dataset.rm});renderCompare();return}
+});
+$('form').addEventListener('submit',function(e){e.preventDefault();submit($('q').value)});
+$('brand').addEventListener('click',showHome);$('navHome').addEventListener('click',showHome);$('navAsk').addEventListener('click',function(){showAsk()});
+$('askBtn').addEventListener('click',function(){showAsk(t('ask_q',cName(S.country),indName(S.ind)))});
+$('askForm').addEventListener('submit',function(e){e.preventDefault();submitAsk($('askQ').value)});
+$('goPick').addEventListener('click',function(){
+  var c=META.byIso[$('selCountry').value],i=indById($('selIndustry').value||'');
+  if(c&&i){$('homeNotice').innerHTML='';start(c,i)}else showHomeNotice(c?t('need_industry'):t('need_country'),{country:c})});
+$('rGo').addEventListener('click',function(){var c=META.byIso[$('rCountry').value],i=indById($('rIndustry').value);if(c&&i)start(c,i)});
+$('csv').addEventListener('click',exportCsv);$('linkBtn').addEventListener('click',copyLink);$('saveBtn').addEventListener('click',toggleSave);
+$('pdfBtn').addEventListener('click',function(){window.print()});
+$('cmpAdd').addEventListener('click',function(){if($('cmpSel').value){addCompare($('cmpSel').value);$('cmpSel').value=''}});
+[].forEach.call(document.querySelectorAll('#langSeg button'),function(b){b.addEventListener('click',function(){LANG=b.getAttribute('data-l');try{localStorage.setItem('mi-lang',LANG)}catch(e){}applyStatic()})});
+[].forEach.call(document.querySelectorAll('#themeSeg button'),function(b){b.addEventListener('click',function(){THEME=b.getAttribute('data-th');try{localStorage.setItem('mi-theme',THEME)}catch(e){}applyTheme()})});
+window.addEventListener('hashchange',function(){if(META&&location.hash.length>1&&(location.hash.slice(1)==='ask'?!ASK:(!S||location.hash.slice(1)!==mkKey(S.country,S.ind))))goKey(location.hash.slice(1))});
+
+function applyPublic(){
+  if(!META||!META.public)return;
+  $('navAsk').hidden=true;$('askBtn').hidden=true;
+  var n=$('pubNote');n.hidden=false;n.textContent=t('pub_note',META.snapshot)}
+/* ---------------- boot ---------------- */
+applyStatic();
+api('/api/meta').then(function(m){
+  META=m;META.byIso={};META.byM49={};
+  m.countries.forEach(function(c){META.byIso[c.iso3]=c;META.byM49[c.m49]=c});
+  applyPublic();applyStatic();
+  if(location.hash.length>1&&!(META.public&&location.hash==='#ask'))goKey(location.hash.slice(1))
+}).catch(function(e){$('homeNotice').innerHTML='<div class="notice">'+esc(e.message)+'</div>'});
+})();
+</script>
+</body>
+</html>

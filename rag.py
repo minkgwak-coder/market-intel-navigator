@@ -11,13 +11,17 @@ Needs:  pip install -r requirements.txt   and   OPENAI_API_KEY in the environmen
 import json
 import os
 import re
+import sys
 import threading
 import time
 
+import agent
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-INDEX_DIR = os.environ.get("MI_FAISS_DIR", os.path.join(HERE, "data", "faiss"))
-EMBED_MODEL = os.environ.get("MI_EMBED_MODEL", "text-embedding-3-small")
-CHAT_MODEL = os.environ.get("MI_CHAT_MODEL", "gpt-4o-mini")
+OFFLINE = agent.offline()  # MI_LLM=offline: local embeddings and sample answers, no API key
+INDEX_DIR = os.environ.get("MI_FAISS_DIR", os.path.join(HERE, "data", "faiss-offline" if OFFLINE else "faiss"))
+EMBED_MODEL = "offline-hash" if OFFLINE else os.environ.get("MI_EMBED_MODEL", "text-embedding-3-small")
+CHAT_MODEL = "offline-sample" if OFFLINE else os.environ.get("MI_CHAT_MODEL", "gpt-4o-mini")
 TOP_K = int(os.environ.get("MI_TOP_K", "8"))
 STALE_AFTER = 7 * 86400
 
@@ -35,16 +39,19 @@ def status():
     try:
         import faiss  # noqa: F401
         import langchain_community.vectorstores  # noqa: F401
-        import langchain_openai  # noqa: F401
+        if not OFFLINE:
+            import langchain_openai  # noqa: F401
     except Exception as e:  # missing packages
         return {"available": False, "reason": "packages",
                 "detail": f"{type(e).__name__}: {e}"}
-    if not os.environ.get("OPENAI_API_KEY"):
+    if not OFFLINE and not os.environ.get("OPENAI_API_KEY"):
         return {"available": False, "reason": "key", "detail": "OPENAI_API_KEY is not set"}
-    return {"available": True, "embed_model": EMBED_MODEL, "chat_model": CHAT_MODEL, "markets": _markets()}
+    return {"available": True, "embed_model": EMBED_MODEL, "chat_model": CHAT_MODEL, "offline": OFFLINE, "markets": _markets()}
 
 
 def get_embeddings():
+    if OFFLINE:
+        return agent.hash_embeddings()
     from langchain_openai import OpenAIEmbeddings
     return OpenAIEmbeddings(model=EMBED_MODEL)
 
@@ -282,8 +289,10 @@ SYSTEM = (
     "Never use a number that is not in the context. Trade values are importer-reported UN Comtrade data in current USD; "
     "import value shows import demand, not domestic market size, so say so when you discuss market size. "
     "If the context cannot answer part of the question, say what is missing instead of guessing. "
+    "Sources of kind internal are notes from the company's own sales, CS or lab teams: use them, and say they are internal notes. "
+    "Sources of kind regulatory are starting points, not legal advice. Convert currencies only with the rate given in a fx source. "
     "Format: a one-sentence answer first, then short sections: Market attractiveness, Growth, Suppliers and Korea's position, "
-    "Risks and gaps in the data, What to verify next. Keep it under 250 words. Reply in the language of the question."
+    "Regulation and currency, Risks and gaps in the data, What to verify next. Keep it under 300 words. Reply in the language of the question."
 )
 
 
@@ -306,6 +315,8 @@ def ask(question, meta, collect, lang="ko"):
         return
     keys = [f"{c['iso3']}/{ind['id']}" for c in countries]
     yield {"step": "question", "markets": [{"key": k, "country": c["name"], "industry": ind["name"]["en"]} for k, c in zip(keys, countries)]}
+    plan = agent.make_plan(question, countries, ind)
+    yield {"step": "plan", "steps": [p["id"] for p in plan]}
 
     # index the markets (loads statistics + news the first time, then embeds them)
     emb = get_embeddings()
@@ -335,7 +346,7 @@ def ask(question, meta, collect, lang="ko"):
             seen.add(r["doc"].id)
             chosen.append({"doc": r["doc"], "score": r["score"], "pinned": False})
     for k in keys:
-        for kind in ("trade_summary", "partners", "macro"):
+        for kind in ("trade_summary", "korea", "partners", "macro"):
             for did in list(vs.index_to_docstore_id.values()):
                 if did.startswith(f"{k}|{kind}|") and did not in seen:
                     seen.add(did)
@@ -346,14 +357,50 @@ def ask(question, meta, collect, lang="ko"):
         sources.append({"id": f"S{i}", "kind": d.metadata.get("kind"), "market": d.metadata.get("market"), "text": d.page_content,
                         "url": d.metadata.get("url"), "source": d.metadata.get("source"),
                         "relevance": None if ch["score"] is None else round(max(0.0, 1 - ch["score"] / 2), 3), "pinned": ch["pinned"]})
+
+    # tools: regulation, currency, internal notes. Each result becomes one more numbered source.
+    markets = list(zip(keys, countries))
+    datas = {k: collect(c["iso3"], ind["id"]) for k, c in markets}
+    totals = {}
+    for k, d in datas.items():
+        m = metrics(derive(d["years"]))
+        if m:
+            totals[k] = {"usd": usd(m["last"]["total"]), "usd_raw": m["last"]["total"]}
+    calls, extra = agent.run_tools(plan, markets, totals, lang)
+    yield {"step": "tools", "calls": calls}
+    for e in extra:
+        sources.append({"id": f"S{len(sources) + 1}", "kind": e["kind"], "market": e["market"], "text": e["text"], "url": e["url"],
+                        "source": e["source"], "relevance": None, "pinned": True})
     yield {"step": "extract", "sources": sources}
 
-    # 4. GPT summary
+    # 4. answer: GPT, or the offline sample writer
+    context = "\n".join(f"[{s['id']}] {s['text']}" for s in sources)
+    if OFFLINE:
+        text = agent.offline_answer(markets, datas, sources, lang, sys.modules[__name__])
+    else:
+        text = _llm_answer(question, context)
+    yield {"step": "answer", "text": text, "model": CHAT_MODEL, "seconds": round(time.time() - t0, 1), "offline": OFFLINE}
+
+    # 5. checks: citations exist, every figure is in a source. One repair attempt with the model.
+    check = agent.verify(text, sources)
+    repaired = False
+    if not check["ok"] and not OFFLINE:
+        fix = (f"Your answer has problems: unknown citations {check['bad_cites']}, figures not in the context {check['ungrounded']}, "
+               f"{check['uncited']} sentences with figures but no [S#]. Rewrite it using only the context and cite every figure.")
+        text2 = _llm_answer(question, context, previous=text, fix=fix)
+        check2 = agent.verify(text2, sources)
+        if len(check2["bad_cites"]) + len(check2["ungrounded"]) + check2["uncited"] <= len(check["bad_cites"]) + len(check["ungrounded"]) + check["uncited"]:
+            text, check, repaired = text2, check2, True
+            yield {"step": "answer", "text": text, "model": CHAT_MODEL, "seconds": round(time.time() - t0, 1), "offline": OFFLINE}
+    yield {"step": "verify", "repaired": repaired, **check}
+
+
+def _llm_answer(question, context, previous=None, fix=None):
     from langchain_core.output_parsers import StrOutputParser
     from langchain_core.prompts import ChatPromptTemplate
-    prompt = ChatPromptTemplate.from_messages([("system", SYSTEM),
-                                               ("human", "CONTEXT:\n{context}\n\nQUESTION: {question}")])
-    context = "\n".join(f"[{s['id']}] {s['text']}" for s in sources)
-    chain = prompt | get_llm() | StrOutputParser()
-    text = chain.invoke({"context": context, "question": question})
-    yield {"step": "answer", "text": text, "model": CHAT_MODEL, "seconds": round(time.time() - t0, 1)}
+    msgs = [("system", SYSTEM), ("human", "CONTEXT:\n{context}\n\nQUESTION: {question}")]
+    vars_ = {"context": context, "question": question}
+    if previous:
+        msgs += [("assistant", "{previous}"), ("human", "{fix}")]
+        vars_.update(previous=previous, fix=fix)
+    return (ChatPromptTemplate.from_messages(msgs) | get_llm() | StrOutputParser()).invoke(vars_)

@@ -4,7 +4,7 @@ A market research tool for exporters of **dental, medical and veterinary devices
 
 ![Result screen](docs/screenshots/result-light.png)
 
-> **Demo video:** `docs/demo.mp4` (dashboard walkthrough). **Live demo:** _add your Render URL after deploying (see "Deploy")_. The Ask AI mode is not exposed publicly to avoid API costs; see the video.
+> **Demo video:** `docs/demo.mp4` (dashboard and Ask AI walkthrough). **Live demo:** _add your Render URL after deploying (see "Deploy")_. The public demo runs Ask AI in a keyless sample mode (`MI_LLM=offline`) so it costs nothing; real GPT answers need your own `OPENAI_API_KEY`.
 
 ## The problem
 
@@ -31,7 +31,7 @@ Today these answers sit in different places: UN Comtrade or ITC Trade Map for tr
 | News | Recent headlines for the country and segment |
 | Compare | Same segment across up to five countries |
 | Workflow | Save markets, copy a shareable link, export PDF (print layout) and CSV, light/dark theme, Korean/English UI |
-| Ask AI | Question → vector search → relevant data → GPT summary, with `[S1]`-style citations |
+| Ask AI | Question → research plan → vector search → tools (regulation, currency, internal notes) → cited GPT answer → automatic check of every citation and figure |
 
 ![Dark theme](docs/screenshots/result-dark.png)
 
@@ -66,6 +66,15 @@ flowchart LR
 * `server.py` (Python standard library only) fetches live data, respects Comtrade's rate limit (one request per 1.4 s, retry on 429) and caches responses in SQLite. A year of trade data for a market costs about 10 calls, so a new market takes roughly 30 s the first time and is instant afterwards.
 * `rag.py` turns each market into small fact documents (yearly imports, per-product growth, Korea share, suppliers, macro indicators, headlines), embeds them with `text-embedding-3-small`, stores them in FAISS through LangChain and filters retrieval to the markets named in the question. Core statistics are always added to the context, flagged as "pinned", so an answer never depends on retrieval alone for the headline numbers.
 * The prompt tells the model to use only the numbered context, cite every factual sentence, say what is missing, and answer in the language of the question.
+
+### Ask AI in more detail
+
+1. **Plan.** `agent.make_plan` reads the question and decides what to look up: statistics and news always, a market comparison when two countries are named, regulation for entry or certification questions, currency when asked, and internal notes every time. The plan is shown to the user.
+2. **Tools.** Regulation (`regulatory.json`, authority and a one-line starting point per country, to be confirmed locally), currency (live ECB reference rate from Frankfurter with a saved-rate fallback, and the import total converted), and **internal notes**: what sales, CS and the lab know, saved from the Ask AI page and cited as internal notes. Each result becomes one more numbered source.
+3. **Answer.** GPT answers only from the numbered context. Offline sample mode writes the answer from the same data instead and is labelled as a sample.
+4. **Check.** `agent.verify` rejects citations that do not exist, figures that are not in any source, and sentences with figures but no citation. With a real model, one rewrite is requested when the check fails; the result is shown as a badge.
+
+`MI_LLM=offline` swaps OpenAI embeddings for a local hashing embedding and GPT for the sample writer, so the whole pipeline runs and can be tested without a key. `MI_NOTES_WRITE=1` allows notes to be written in the public mode.
 
 ## Data sources
 

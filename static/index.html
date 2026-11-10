@@ -161,7 +161,7 @@ td .code{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
 .toast.on{opacity:1}
 
-.pipe{list-style:none;margin:32px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.pipe{list-style:none;margin:32px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px}
 .pipe li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
 .pipe li .n{font-size:12.5px;color:var(--muted)}
 .pipe li b{display:block;font-weight:600;font-size:15px;margin-top:2px}
@@ -180,6 +180,19 @@ a.cite:hover{text-decoration:underline}
 .src .meta{font-size:12.5px;color:var(--muted)}
 .src .tx{font-size:13.5px;overflow-wrap:anywhere}
 .src.flash{background:var(--accent-soft)}
+.ans-lead{font-size:16px;font-weight:500;margin-bottom:16px}.ans-sec{margin-top:16px}.ans-sec b{display:block;font-size:13px;color:var(--muted);font-weight:600;margin-bottom:4px}.ans-sec div+div{margin-top:4px}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.chk.ok{color:var(--good);border-color:var(--good)}.chk.warn{color:var(--bad);border-color:var(--bad)}
+.tag{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--muted);margin-left:8px}
+.notes{margin-top:24px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.notes>summary{cursor:pointer;padding:14px 16px;font-weight:600;font-size:14.5px;list-style:none}
+.notes>summary::-webkit-details-marker{display:none}
+.notes .nb{padding:0 16px 16px}
+.notes .nf{display:grid;grid-template-columns:1fr 1fr 130px;gap:8px;margin-top:12px}
+.notes textarea{grid-column:1/-1;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;min-height:64px;font:inherit;resize:vertical;color:var(--ink)}
+.notes .nrow{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px 0;border-top:1px solid var(--line);font-size:13.5px}
+.notes .nrow .m{font-size:12.5px;color:var(--muted)}
+.notes .nrow button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}
 .cmd{font-family:var(--f-mono);font-size:12.5px;background:var(--surface2);border-radius:8px;padding:8px 12px;margin-top:8px;overflow-x:auto;white-space:pre}
 @media (max-width:900px){
   .app{display:block}
@@ -275,6 +288,12 @@ a.cite:hover{text-decoration:underline}
         </form>
         <div class="h-label" data-i18n="ask_try"></div>
         <div class="mk-grid" id="askEx"></div>
+        <details class="notes" id="notesBox"><summary id="notesSum"></summary><div class="nb">
+          <p class="muted" id="notesHint" style="margin:0"></p>
+          <div class="nf" id="notesForm"><select id="nCountry" aria-label="country"></select><select id="nIndustry" aria-label="industry"></select><select id="nTeam" aria-label="team"></select>
+            <textarea id="nText" maxlength="600"></textarea>
+            <button class="btn sm" id="nAdd" type="button"></button></div>
+          <div id="notesList"></div></div></details>
         <ol class="pipe" id="pipe" hidden></ol>
         <div id="askOut"></div>
       </section>
@@ -338,12 +357,19 @@ a.cite:hover{text-decoration:underline}
 /* ---------------- i18n ---------------- */
 var I18N={
 ko:{
- pub_note:function(d){return '공개 데모입니다. 데이터는 '+(d||'저장 시점')+' 기준으로 저장한 실제 통계이고, AI 질문은 API 비용 때문에 꺼져 있습니다. 시연 영상을 참고하세요'}, pub_nohs:'공개 데모에서는 HS 코드 직접 입력을 지원하지 않습니다. 분야를 골라 주세요',
+ pub_note:function(d){return '공개 데모입니다. 데이터는 '+(d||'저장 시점')+' 기준으로 저장한 실제 통계이고, AI 질문은 키 없이 돌아가는 샘플 모드입니다. 실제 GPT 답변은 시연 영상을 참고하세요'}, pub_nohs:'공개 데모에서는 HS 코드 직접 입력을 지원하지 않습니다. 분야를 골라 주세요',
  nav_ask:'AI 질문', ask_h1:'AI에게 묻기', ask_sub:'질문에서 국가와 산업을 읽고, 수집한 통계와 뉴스에서 근거를 찾아 GPT가 정리합니다', ask_ph:'예: 한국 의료기기 기업이 브라질에 진출해야 할까?',
  ask_btn:'질문', ask_try:'이런 질문을 해보세요', ask_from:'AI에게 묻기',
  ask_ex1:'한국 의료기기 기업이 브라질에 진출해야 할까?', ask_ex2:'미국 치과 시장에서 한국산의 위치는?', ask_ex3:'독일 영상진단기기 수입은 어느 나라가 주도해?',
  ask_q:function(c,i){return '한국 기업이 '+c+' '+i+' 시장에 진출해야 할까?'},
- p_q:'질문 입력', p_s:'벡터 검색', p_e:'관련 데이터 추출', p_a:'GPT 요약', p_wait:'대기', p_run:'진행 중', p_done:'완료', p_err:'오류',
+ p_q:'질문 입력', p_p:'조사 계획', p_s:'벡터 검색', p_t:'도구 호출', p_e:'근거 정리', p_a:'답변 작성', p_v:'답변 검증', p_wait:'대기', p_run:'진행 중', p_done:'완료', p_err:'오류',
+ plan_facts:'통계·뉴스', plan_compare:'시장 비교', plan_regulatory:'인증·규제', plan_fx:'환율', plan_internal:'내부 메모',
+ pd_plan:function(l){return l.join(' → ')}, pd_tools:function(r,f,n){return '규제 '+r+' · 환율 '+f+' · 내부 메모 '+n+'건'},
+ pd_verify_ok:function(n){return '인용 '+n+'개 확인, 모든 수치가 근거에 있음'}, pd_verify_bad:function(b,u,c){return '확인 필요: 없는 인용 '+b+'개, 근거 없는 수치 '+u+'개, 인용 없는 문장 '+c+'개'},
+ pd_verify_fix:'다시 쓰기 후 통과', tag_offline:'샘플 답변 · 오프라인 모드',
+ notes_h:function(n){return '내부 메모 ('+n+'건)'}, notes_hint:'영업·CS·연구소가 아는 내용을 적어 두면 질문할 때 근거로 함께 쓰입니다. 출처는 내부 메모로 표시됩니다',
+ notes_ph:'예: 현지 유통사가 등록 일정이 가장 길다고 함', notes_add:'메모 추가', notes_ro:'공개 데모에서는 메모를 읽기만 할 수 있습니다', notes_none:'아직 메모가 없습니다',
+ team_sales:'영업', team_cs:'CS', team_lab:'연구소', team_other:'기타', kind_regulatory:'인증·규제', kind_fx:'환율', kind_internal:'내부 메모',
  pd_idx_loading:'통계와 뉴스를 불러와 색인하는 중입니다. 처음 한 번은 20초쯤 걸립니다', pd_idx_cached:'색인이 있어 바로 검색합니다', pd_idx_done:function(n){return n+'개 문서를 색인했습니다'},
  pd_search:function(f,k){return '상위 '+f+'개를 찾았습니다 (k='+k+')'}, pd_extract:function(n,p){return '근거 '+n+'개, 핵심 통계 '+p+'개 포함'},
  pd_answer:function(m,s){return m+' · '+s+'초'},
@@ -397,12 +423,19 @@ ko:{
  cmp_empty:'비교할 국가를 추가하세요', err_prefix:'불러오지 못했습니다: ', more:function(n){return '+'+n}
 },
 en:{
- pub_note:function(d){return 'Public demo. Data is a snapshot of real statistics from '+(d||'the snapshot date')+'. Ask AI is switched off to avoid API costs; see the demo video'}, pub_nohs:'Custom HS codes are not available in the public demo. Pick a segment instead',
+ pub_note:function(d){return 'Public demo. Data is a snapshot of real statistics from '+(d||'the snapshot date')+'. Ask AI runs in a keyless sample mode here; see the demo video for real GPT answers'}, pub_nohs:'Custom HS codes are not available in the public demo. Pick a segment instead',
  nav_ask:'Ask AI', ask_h1:'Ask AI', ask_sub:'Reads the country and industry from your question, finds evidence in the collected statistics and news, and has GPT write the answer', ask_ph:'e.g. Should Korean medical device companies enter Brazil?',
  ask_btn:'Ask', ask_try:'Try a question', ask_from:'Ask AI',
  ask_ex1:'Should Korean medical device companies enter Brazil?', ask_ex2:'Where does Korea stand in the US dental market?', ask_ex3:'Which countries lead Germany\'s diagnostic imaging imports?',
  ask_q:function(c,i){return 'Should Korean companies enter the '+c+' '+i.toLowerCase()+' market?'},
- p_q:'Question', p_s:'Vector search', p_e:'Relevant data', p_a:'GPT summary', p_wait:'Waiting', p_run:'Running', p_done:'Done', p_err:'Error',
+ p_q:'Question', p_p:'Plan', p_s:'Vector search', p_t:'Tools', p_e:'Evidence', p_a:'Answer', p_v:'Verification', p_wait:'Waiting', p_run:'Running', p_done:'Done', p_err:'Error',
+ plan_facts:'Statistics and news', plan_compare:'Compare markets', plan_regulatory:'Certification', plan_fx:'Currency', plan_internal:'Internal notes',
+ pd_plan:function(l){return l.join(' → ')}, pd_tools:function(r,f,n){return 'Regulation '+r+' · Currency '+f+' · '+n+' internal notes'},
+ pd_verify_ok:function(n){return n+' citations valid, every figure found in the sources'}, pd_verify_bad:function(b,u,c){return 'Check needed: '+b+' unknown citations, '+u+' figures not in sources, '+c+' uncited sentences'},
+ pd_verify_fix:'Passed after one rewrite', tag_offline:'Sample answer · offline mode',
+ notes_h:function(n){return 'Internal notes ('+n+')'}, notes_hint:'What sales, CS and the lab know goes here. Notes are used as evidence when you ask, and are marked as internal notes',
+ notes_ph:'e.g. The local distributor says registration takes the longest', notes_add:'Add note', notes_ro:'Notes are read-only in the public demo', notes_none:'No notes yet',
+ team_sales:'Sales', team_cs:'CS', team_lab:'Lab', team_other:'Other', kind_regulatory:'Regulation', kind_fx:'Currency', kind_internal:'Internal note',
  pd_idx_loading:'Loading statistics and news and indexing them. The first time takes about 20 seconds', pd_idx_cached:'Index found, searching now', pd_idx_done:function(n){return n+' documents indexed'},
  pd_search:function(f,k){return 'Found the top '+f+' (k='+k+')'}, pd_extract:function(n,p){return n+' sources, '+p+' of them core statistics'},
  pd_answer:function(m,s){return m+' · '+s+'s'},
@@ -736,7 +769,7 @@ function showAsk(prefill){
   RUN++;S=null;ASK=true;$('home').hidden=true;$('result').hidden=true;$('ask').hidden=false;progress(0);
   try{history.replaceState(null,'','#ask')}catch(e){}
   if(prefill)$('askQ').value=prefill;
-  renderSide();renderAskEx();renderAskStatus();
+  renderSide();renderAskEx();renderAskStatus();loadNotes();
   api('/api/rag/status').then(function(d){askStatusData=d;renderAskStatus()}).catch(function(e){askStatusData={available:false,reason:'server',detail:e.message};renderAskStatus()});
   window.scrollTo(0,0)}
 function renderAskEx(){$('askEx').innerHTML=['ask_ex1','ask_ex2','ask_ex3'].map(function(k){return '<button class="mk" data-ask="'+k+'"><b>'+esc(t(k))+'</b></button>'}).join('')}
@@ -747,30 +780,40 @@ function renderAskStatus(){
   var msg=st.reason==='packages'?t('rag_pkg'):st.reason==='key'?t('rag_key'):esc(st.detail||'');
   var cmd=st.reason==='packages'?'pip install -r requirements.txt':st.reason==='key'?'set OPENAI_API_KEY=sk-...        (Mac/Linux: export OPENAI_API_KEY=sk-...)':'';
   box.innerHTML='<div class="notice">'+esc(msg)+(cmd?'<div class="cmd">'+esc(cmd)+'</div>':'')+(st.detail&&st.reason==='packages'?'<div class="muted" style="margin-top:8px">'+esc(st.detail)+'</div>':'')+'</div>'}
+var PKEYS=['q','p','s','t','e','a','v'],PNAMES=['p_q','p_p','p_s','p_t','p_e','p_a','p_v'];
 function pipeHtml(){
-  var names=['p_q','p_s','p_e','p_a'],keys=['q','s','e','a'],stl={wait:'p_wait',run:'p_run',done:'p_done',err:'p_err'};
-  return keys.map(function(k,i){var s=askSt.steps[k];
-    return '<li data-s="'+s+'"><div class="n">'+(i+1)+' · '+esc(t(stl[s]))+'</div><b>'+esc(t(names[i]))+'</b><div class="d">'+esc(askSt.det[k]||'')+'</div></li>'}).join('')}
+  var stl={wait:'p_wait',run:'p_run',done:'p_done',err:'p_err'};
+  return PKEYS.map(function(k,i){var s=askSt.steps[k];
+    return '<li data-s="'+s+'"><div class="n">'+(i+1)+' · '+esc(t(stl[s]))+'</div><b>'+esc(t(PNAMES[i]))+'</b><div class="d">'+esc(askSt.det[k]||'')+'</div></li>'}).join('')}
 function mkLabel(key){var p=keyParts(key);return p?cName(p.c)+' · '+indName(p.i):key}
 function askEvent(ev){
   if(ev.error){
-    var cur=['q','s','e','a'].filter(function(k){return askSt.steps[k]==='run'})[0]||'q';askSt.steps[cur]='err';
+    var cur=PKEYS.filter(function(k){return askSt.steps[k]==='run'})[0]||'q';askSt.steps[cur]='err';
     askSt.err=ev.error==='no_market'?t('rag_nomarket'):ev.error==='rag_unavailable'?null:t('rag_failed')+(ev.detail||ev.error);
     if(ev.error==='rag_unavailable'){askStatusData=ev.detail;renderAskStatus()}
     return}
-  if(ev.step==='question'){askSt.steps.q='done';askSt.det.q=ev.markets.map(function(m){return mkLabel(m.key)}).join(', ');askSt.steps.s='run'}
+  if(ev.step==='question'){askSt.steps.q='done';askSt.det.q=ev.markets.map(function(m){return mkLabel(m.key)}).join(', ');askSt.steps.p='run'}
+  else if(ev.step==='plan'){askSt.steps.p='done';askSt.det.p=t('pd_plan',ev.steps.map(function(x){return t('plan_'+x)}));askSt.steps.s='run'}
   else if(ev.step==='index'){askSt.det.s=t(ev.status==='loading'?'pd_idx_loading':ev.status==='cached'?'pd_idx_cached':'pd_idx_done',ev.docs)}
-  else if(ev.step==='search'){askSt.steps.s='done';askSt.det.s=t('pd_search',ev.found,ev.k);askSt.steps.e='run'}
+  else if(ev.step==='search'){askSt.steps.s='done';askSt.det.s=t('pd_search',ev.found,ev.k);askSt.steps.t='run'}
+  else if(ev.step==='tools'){var n=function(x){return ev.calls.filter(function(c){return c.tool===x&&c.found}).reduce(function(a,c){return a+(c.n||1)},0)};
+    askSt.steps.t='done';askSt.det.t=t('pd_tools',n('regulatory'),n('fx'),n('internal_notes'));askSt.steps.e='run'}
   else if(ev.step==='extract'){askSt.sources=ev.sources;askSt.steps.e='done';
     askSt.det.e=t('pd_extract',ev.sources.length,ev.sources.filter(function(x){return x.pinned}).length);askSt.steps.a='run'}
-  else if(ev.step==='answer'){askSt.steps.a='done';askSt.det.a=t('pd_answer',ev.model,ev.seconds);askSt.text=ev.text}}
+  else if(ev.step==='answer'){askSt.steps.a='done';askSt.det.a=t('pd_answer',ev.model,ev.seconds);askSt.text=ev.text;askSt.offline=!!ev.offline;if(!askSt.check)askSt.steps.v='run'}
+  else if(ev.step==='verify'){askSt.check=ev;askSt.steps.v='done';
+    askSt.det.v=ev.ok?(ev.repaired?t('pd_verify_fix'):t('pd_verify_ok',ev.cites)):t('pd_verify_bad',ev.bad_cites.length,ev.ungrounded.length,ev.uncited)}}
 function renderAskOut(){
   $('pipe').hidden=false;$('pipe').innerHTML=pipeHtml();
   var h='';
   if(askSt.err)h+='<div class="notice">'+esc(askSt.err)+'</div>';
   if(askSt.text){
-    var txt=esc(askSt.text.replace(/\*\*/g,'')).replace(/\[S(\d+)\]/g,'<a class="cite" href="#" data-cite="S$1">[S$1]</a>');
-    h+='<div class="card" style="margin-top:24px"><div class="ans-h"><span>'+esc(t('ans_h'))+'</span></div><div class="ans" style="margin-top:0">'+txt+'</div></div>'}
+    var txt=askSt.text.replace(/\*\*/g,'').split(/\n\n+/).map(function(para,pi){
+      var ls=para.split('\n'),hd=ls.length>1&&ls[0].length<40&&ls[0].indexOf('[S')<0&&pi>0;
+      var body=(hd?ls.slice(1):ls).map(function(l){return '<div>'+esc(l)+'</div>'}).join('');
+      return (hd?'<div class="ans-sec"><b>'+esc(ls[0])+'</b>':pi===0?'<div class="ans-lead">':'<div class="ans-sec">')+body+'</div>'}).join('').replace(/\[S(\d+)\]/g,'<a class="cite" href="#" data-cite="S$1">[S$1]</a>');
+    var ck=askSt.check?'<span class="chk '+(askSt.check.ok?'ok':'warn')+'">'+esc(askSt.det.v)+'</span>':'';
+    h+='<div class="card" style="margin-top:24px"><div class="ans-h"><span>'+esc(t('ans_h'))+(askSt.offline?'<span class="tag">'+esc(t('tag_offline'))+'</span>':'')+'</span>'+ck+'</div><div class="ans" style="margin-top:0">'+txt+'</div></div>'}
   if(askSt.sources){
     h+='<div class="card" style="margin-top:16px"><div class="card-h"><h3>'+esc(t('src_h'))+'</h3></div>'+askSt.sources.map(function(x){
       var meta=[t('kind_'+x.kind),mkLabel(x.market)];if(x.pinned)meta.push(t('src_pinned'));else if(x.relevance!=null)meta.push(t('src_rel')+' '+x.relevance.toFixed(2));
@@ -778,7 +821,7 @@ function renderAskOut(){
   $('askOut').innerHTML=h}
 function submitAsk(q){
   q=q.trim();if(q.length<3)return;
-  var run=++askRun;askSt={steps:{q:'run',s:'wait',e:'wait',a:'wait'},det:{},sources:null,text:null,err:null};
+  var run=++askRun;askSt={steps:{q:'run',p:'wait',s:'wait',t:'wait',e:'wait',a:'wait',v:'wait'},det:{},sources:null,text:null,err:null,check:null,offline:false};
   $('askGo').disabled=true;renderAskOut();
   fetch('/api/rag/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,lang:LANG})}).then(function(r){
     var rd=r.body.getReader(),dec=new TextDecoder(),buf='';
@@ -790,6 +833,28 @@ function submitAsk(q){
     return pump()
   }).catch(function(e){if(run!==askRun)return;askSt.err=t('rag_failed')+e.message;askSt.steps.q=askSt.steps.q==='run'?'err':askSt.steps.q})
    .then(function(){if(run!==askRun)return;$('askGo').disabled=false;renderAskOut()})}
+
+/* ---------------- internal notes ---------------- */
+var NOTES=[],NOTES_RW=true;
+function loadNotes(){api('/api/notes').then(function(d){NOTES=d.notes||[];NOTES_RW=d.writable!==false;renderNotes()}).catch(function(){})}
+function renderNotes(){
+  if(!META)return;
+  $('notesSum').textContent=t('notes_h',NOTES.length);$('notesHint').textContent=t('notes_hint');
+  var cs=sortedCountries();
+  var cv=$('nCountry').value,iv=$('nIndustry').value,tv=$('nTeam').value;
+  $('nCountry').innerHTML=cs.map(function(c){return '<option value="'+c.iso3+'">'+esc(cName(c))+'</option>'}).join('');
+  $('nIndustry').innerHTML=META.industries.map(function(i){return '<option value="'+i.id+'">'+esc(indName(i))+'</option>'}).join('');
+  $('nTeam').innerHTML=['sales','cs','lab','other'].map(function(k){return '<option value="'+k+'">'+esc(t('team_'+k))+'</option>'}).join('');
+  if(cv)$('nCountry').value=cv;if(iv)$('nIndustry').value=iv;if(tv)$('nTeam').value=tv;
+  $('nText').placeholder=t('notes_ph');$('nAdd').textContent=t('notes_add');
+  $('notesForm').hidden=!NOTES_RW;
+  $('notesList').innerHTML=NOTES.length?NOTES.slice().reverse().map(function(n){return '<div class="nrow"><div><div class="m">'+esc(mkLabel(n.market)+' · '+t('team_'+n.team))+'</div>'+esc(n.text)+'</div>'+(NOTES_RW?'<button type="button" data-del="'+n.id+'" aria-label="delete">×</button>':'')+'</div>'}).join(''):'<p class="muted" style="margin:12px 0 0">'+esc(NOTES_RW?t('notes_none'):t('notes_ro'))+'</p>'}
+$('nAdd').addEventListener('click',function(){
+  var txt=$('nText').value.trim();if(txt.length<5)return;
+  fetch('/api/notes',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({market:$('nCountry').value+'/'+$('nIndustry').value,team:$('nTeam').value,text:txt})})
+   .then(function(r){return r.json()}).then(function(d){if(d.note){$('nText').value='';loadNotes()}})});
+$('notesList').addEventListener('click',function(e){var id=e.target.getAttribute&&e.target.getAttribute('data-del');if(!id)return;
+  fetch('/api/notes/delete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:id})}).then(loadNotes)});
 
 /* ---------------- ui wiring ---------------- */
 var EXAMPLES=[['BRA','medtech'],['USA','dental'],['DEU','imaging'],['VNM','consumables'],['MEX','implants'],['JPN','medtech']];
@@ -817,6 +882,7 @@ function applyStatic(){
   [].forEach.call(document.querySelectorAll('#langSeg button'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-l')===LANG)});
   applyTheme();
   if(META&&META.public)$('pubNote').textContent=t('pub_note',META.snapshot);
+  if(META&&ASK&&$('notesSum')){renderNotes();renderAskEx()}
   if(META){fillSelects();renderHomeLists();renderSide();if(S){renderHeader();renderAll()}if(ASK){renderAskEx();renderAskStatus();if(askSt)renderAskOut()}}}
 function goKey(k){if(k==='ask'){showAsk();return}var p=keyParts(k);if(p)start(p.c,p.i)}
 function showHome(){RUN++;S=null;hideAsk();$('result').hidden=true;$('home').hidden=false;progress(0);try{history.replaceState(null,'',location.pathname)}catch(e){}renderHomeLists();renderSide();window.scrollTo(0,0)}
@@ -865,7 +931,7 @@ window.addEventListener('hashchange',function(){if(META&&location.hash.length>1&
 
 function applyPublic(){
   if(!META||!META.public)return;
-  $('navAsk').hidden=true;$('askBtn').hidden=true;
+  if(!META.ai){$('navAsk').hidden=true;$('askBtn').hidden=true}
   var n=$('pubNote');n.hidden=false;n.textContent=t('pub_note',META.snapshot)}
 /* ---------------- boot ---------------- */
 applyStatic();
@@ -873,7 +939,7 @@ api('/api/meta').then(function(m){
   META=m;META.byIso={};META.byM49={};
   m.countries.forEach(function(c){META.byIso[c.iso3]=c;META.byM49[c.m49]=c});
   applyPublic();applyStatic();
-  if(location.hash.length>1&&!(META.public&&location.hash==='#ask'))goKey(location.hash.slice(1))
+  if(location.hash.length>1&&!(META.public&&!META.ai&&location.hash==='#ask'))goKey(location.hash.slice(1))
 }).catch(function(e){$('homeNotice').innerHTML='<div class="notice">'+esc(e.message)+'</div>'});
 })();
 </script>

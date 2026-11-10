@@ -1,7 +1,6 @@
 # Demo video script (2 to 3 minutes)
 
-`docs/demo.mp4` already covers the dashboard (about 2 minutes, captions, no narration). The Ask AI part has to be recorded
-on your own machine because it needs your OpenAI key. Record it separately (a screen recorder such as the one built into
+`docs/demo.mp4` covers the dashboard and the Ask AI pipeline in offline sample mode (captions, no narration). To record the real GPT answer, run with your own OpenAI key. Record it separately (a screen recorder such as the one built into
 Windows with Win+Alt+R) and append it, or record the whole thing again following this script with your own voice.
 
 ## Setup before recording

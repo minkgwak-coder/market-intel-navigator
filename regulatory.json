@@ -1,0 +1,75 @@
+{
+ "_note": "High-level starting points only. Confirm requirements with the local distributor or regulator before quoting them to a customer.",
+ "BRA": {
+  "currency": "BRL",
+  "authority": "ANVISA",
+  "text": "Medical devices need ANVISA registration or notification by risk class; some electromedical equipment also needs INMETRO certification.",
+  "text_ko": "의료기기는 위험 등급에 따라 ANVISA 등록 또는 신고가 필요하고, 일부 전기의료기기는 INMETRO 인증도 필요합니다."
+ },
+ "USA": {
+  "currency": "USD",
+  "authority": "FDA",
+  "text": "FDA clearance or approval by device class (510(k), De Novo or PMA) is required before sale.",
+  "text_ko": "판매 전에 기기 등급에 따라 FDA 허가나 승인(510(k), De Novo, PMA)이 필요합니다."
+ },
+ "DEU": {
+  "currency": "EUR",
+  "authority": "EU MDR",
+  "text": "CE marking under Regulation (EU) 2017/745, with a notified body for most classes above I.",
+  "text_ko": "규정 (EU) 2017/745에 따른 CE 마킹이 필요하며, I등급을 넘는 대부분은 인증기관(notified body)을 거칩니다."
+ },
+ "FRA": {
+  "currency": "EUR",
+  "authority": "EU MDR",
+  "text": "CE marking under Regulation (EU) 2017/745, with a notified body for most classes above I.",
+  "text_ko": "규정 (EU) 2017/745에 따른 CE 마킹이 필요하며, I등급을 넘는 대부분은 인증기관(notified body)을 거칩니다."
+ },
+ "ITA": {
+  "currency": "EUR",
+  "authority": "EU MDR",
+  "text": "CE marking under Regulation (EU) 2017/745, with a notified body for most classes above I.",
+  "text_ko": "규정 (EU) 2017/745에 따른 CE 마킹이 필요하며, I등급을 넘는 대부분은 인증기관(notified body)을 거칩니다."
+ },
+ "ESP": {
+  "currency": "EUR",
+  "authority": "EU MDR",
+  "text": "CE marking under Regulation (EU) 2017/745, with a notified body for most classes above I.",
+  "text_ko": "규정 (EU) 2017/745에 따른 CE 마킹이 필요하며, I등급을 넘는 대부분은 인증기관(notified body)을 거칩니다."
+ },
+ "JPN": {
+  "currency": "JPY",
+  "authority": "PMDA / MHLW",
+  "text": "Marketing authorization through a Japanese marketing authorization holder, reviewed by PMDA.",
+  "text_ko": "일본 내 제조판매업자를 통해 허가를 받으며 PMDA가 심사합니다."
+ },
+ "CHN": {
+  "currency": "CNY",
+  "authority": "NMPA",
+  "text": "NMPA registration is required, with local testing for most devices.",
+  "text_ko": "NMPA 등록이 필요하고 대부분 현지 시험을 거칩니다."
+ },
+ "MEX": {
+  "currency": "MXN",
+  "authority": "COFEPRIS",
+  "text": "Sanitary registration with COFEPRIS is required before import and sale.",
+  "text_ko": "수입과 판매 전에 COFEPRIS 위생 등록이 필요합니다."
+ },
+ "IND": {
+  "currency": "INR",
+  "authority": "CDSCO",
+  "text": "Registration with CDSCO under the Medical Devices Rules, 2017.",
+  "text_ko": "의료기기 규칙 2017에 따라 CDSCO 등록이 필요합니다."
+ },
+ "VNM": {
+  "currency": "VND",
+  "authority": "Ministry of Health",
+  "text": "A circulation registration from the Ministry of Health and a local importer are required.",
+  "text_ko": "보건부 유통 등록과 현지 수입업자가 필요합니다."
+ },
+ "KOR": {
+  "currency": "KRW",
+  "authority": "MFDS",
+  "text": "MFDS approval, certification or notification by device grade.",
+  "text_ko": "기기 등급에 따라 MFDS 허가, 인증 또는 신고가 필요합니다."
+ }
+}

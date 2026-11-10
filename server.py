@@ -25,6 +25,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 
+import agent
 import rag
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -240,11 +241,20 @@ TH_GDELT = Throttle(5.5)
 # ----------------------------------------------------------------------------
 # data sources
 # ----------------------------------------------------------------------------
+def ai_enabled():
+    """Ask AI is on with an API key (not in the public demo), or in offline sample mode, which costs nothing."""
+    return agent.offline() or (bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")) and not PUBLIC)
+
+
+def notes_writable():
+    return os.environ.get("MI_NOTES_WRITE") == "1" or not PUBLIC
+
+
 def meta():
     cached = cache_get("meta:v2", 30 * DAY)
     if cached:  # countries and names are cached; industries and flags always come from the code
         cached["industries"] = INDUSTRIES
-        cached["ai"] = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")) and not PUBLIC
+        cached["ai"] = ai_enabled()
         cached["public"] = PUBLIC
         cached["snapshot"] = cache_get("snapshot:date", 10 ** 12)
         return cached
@@ -283,7 +293,7 @@ def meta():
         names[str(c["m49"])] = c["name"]
     names["0"] = "World"
     out = {"countries": countries, "names": names, "industries": INDUSTRIES, "korea": KOREA,
-           "ai": bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")) and not PUBLIC,
+           "ai": ai_enabled(),
            "public": PUBLIC, "snapshot": cache_get("snapshot:date", 10 ** 12)}
     cache_set("meta:v2", out)
     return out
@@ -600,8 +610,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if u.path == "/api/meta":
                 return self._json(meta())
+            if u.path == "/api/notes":
+                return self._json({"notes": agent.list_notes(q.get("market") or None), "writable": notes_writable()})
             if u.path == "/api/rag/status":
-                if PUBLIC:
+                if PUBLIC and not agent.offline():
                     return self._json({"available": False, "reason": "public", "detail": "disabled in the public demo"})
                 return self._json(rag.status())
             if u.path == "/api/macro":
@@ -633,11 +645,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": f"{type(e).__name__}: {e}"}, 500)
 
     def do_POST(self):
-        if PUBLIC:
+        if PUBLIC and not (agent.offline() and self.path in ("/api/rag/ask", "/api/notes", "/api/notes/delete")):
             return self._json({"error": "disabled in the public demo"}, 403)
         try:
             n = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(n) or b"{}")
+            if self.path in ("/api/notes", "/api/notes/delete"):
+                if not notes_writable():
+                    return self._json({"error": "notes are read-only in the public demo"}, 403)
+                if self.path == "/api/notes/delete":
+                    return self._json({"ok": agent.delete_note(str(payload.get("id", "")))})
+                try:
+                    return self._json({"note": agent.add_note(payload.get("market", ""), payload.get("team", ""), payload.get("text", ""), payload.get("author", ""))})
+                except ValueError as e:
+                    return self._json({"error": str(e)}, 400)
             if self.path == "/api/ai":
                 return self._json({"text": ai_summary(payload)})
             if self.path == "/api/rag/ask":
